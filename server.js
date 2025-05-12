@@ -34,6 +34,11 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Sign - up API AND ENDPOINT
 
+app.post("/signup", async (req, res) => {
+    const { username, password } = req.body;
 
+    
+
+})
 
 
