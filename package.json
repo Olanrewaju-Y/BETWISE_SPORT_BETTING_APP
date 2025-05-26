@@ -1,5 +1,5 @@
 {
-  "name": "creating_a_betwise-project_sport_betting_platform_mycex_milestone1",
+  "name": "creating_a_betwise-project_sport_betting_platform_mycex_milestone2",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "dev": "nodemon server.js"
   },
   "repository": {
-    "url": "https://github.com/Olanrewaju-Y/CREATING_A_BETWISE-PROJECT_SPORT_BETTING_PLATFORM_myCEx.git"
+    "url": "https://github.com/Olanrewaju-Y/CREATING_A_BETWISE-PROJECT_SPORT_BETTING_PLATFORM_myCEx_MILESTONE2/.git"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -16,12 +16,13 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.2",
-    "nodemailer": "^7.0.3",
-    "nodemon": "^3.1.10",
-    "route": "^0.2.5"
+    "nodemailer": "^7.0.3"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
 }
