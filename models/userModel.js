@@ -1,7 +1,7 @@
 const mongoose = require("mongoose")
 
 const userSchema = new mongoose.Schema({
-    username: {
+    userName: {
         type: String,
         required: true,
         unique: true
@@ -10,8 +10,19 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    below18: {
+        type: Number,
+        required: true,
+        default: 18
+    },
+    walletBalance: {
+        type: Number,
+        required: true,
+        default: 0
+    },
     nickName: {
-        type: String
+        type: String,
+        default: ""
     },
     role: {
         type: String,
@@ -21,28 +32,18 @@ const userSchema = new mongoose.Schema({
     },
     gender: {
         type: String,
-        required: true,
         enum: ["male", "female", "prefer not to say" ],
-        default: "prefer not to say"
-    },
-    above18: {
-        type: Boolean,
-        required: true
+        default: ""
     },
     country: {
         type: String,
-        required: true,
-        default: "Nigeria"
+        default: ""
     },
     interests: {
-        type: String,
-        required: true,
-        enum: [ "football", "cricket", "basket ball", "tennis" ],
-        default: "football"
-    },
-    walletBalance: {
-        type: Number,
-        default: 0
+        type: [String], // Assuming multiple interests can be selected
+       // enum: [ "football", "cricket", "basket ball", "tennis" ],
+        default: [""] // Correct default for an array type
+        // If only one interest is allowed: type: String, default: "" or one of the enum values
     }
 }, 
 
@@ -53,4 +54,3 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model("User", userSchema)
 
 module.exports = User
-

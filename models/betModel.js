@@ -13,34 +13,18 @@ const betSchema = new mongoose.Schema({
         ref: "Event",
         required: true
     },
-    betStatus: {
-        type: String,
-        required: true,
-        enum: [ "upcoming", "ongoing", "completed", "cancelled", "suspended", "ended", "expired", "deleted", "archived" ],
-        default: "upcoming"
-    },
     betOdds: {
-        type: String,
-        required: true,
-        enum: [ "win", "draw", "lose", "over", "under", "goal" ],
-        default: "win"
+        type: Number, // Assuming this is the numerical value of the odds
     },
      betAmount: {
         type: Number,
         required: true,
-        default: 0
+        default: 100
     },
     betResult: {
         type: String,
-        required: true
-    },
-    createdDate: {
-        type: Date,
-        default: Date.now
-    },
-    updatedDate: {
-        type: Date,
-        default: Date.now
+        enum: ["won", "lost", "pending", "void", "cancelled"], // Added enum
+        default: "pending"
     }
 }, 
 
