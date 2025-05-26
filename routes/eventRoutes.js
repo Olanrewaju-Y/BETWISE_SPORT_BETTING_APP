@@ -33,6 +33,5 @@ router.get("/event/:id", handleGetEventById);
 router.put("/update-game-result/:id", authenticateToken, validateIsAdmin, handleUpdateGameResult)
 
 
-
-
+// Export the routers
 module.exports = router;
