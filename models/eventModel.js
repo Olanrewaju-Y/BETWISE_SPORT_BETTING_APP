@@ -25,21 +25,19 @@ const eventSchema = new mongoose.Schema({
         required: true,
         default: "home"
     },
-    homeTeamOdd: {
-        type: { 
-            "1x2": { "1": String, "x": String, "2": String }, 
-            doubleChance: { "1x": String, "12": String, "x2": String }, 
-            overUnder: { "over2_5": String, "under2_5": String},
-            ggNg: { "gg": String, "ng": String } 
-        },
-        default: () => ({ // Default to an empty object or a pre-filled structure
-            "1x2": { "1": "","x": "", "2": ""},
-            doubleChance: { "1x": "","12": "", "x2": ""},
-            overUnder: {"over2_5": "", "under2_5": ""},
-            ggNg: { "gg": "","ng": "" }
-        })
+    homeTeamScore: {
+        type: Number,
+        default: 0
     },
-     homeTeamScore: {
+    homeTeamPoint: {
+        type: Number,
+        default: 0
+    },
+    drawPoint: {
+        type: Number,
+        default: 0
+    },
+    awayTeamPoint: {
         type: Number,
         default: 0
     },
@@ -48,28 +46,23 @@ const eventSchema = new mongoose.Schema({
         required: true,
         default: "away"
     },
-    awayTeamOdd: {
-        type: { 
-            "1x2": { "1": String, "x": String, "2": String },
-            doubleChance: { "1x": String, "12": String, "x2": String },
-            overUnder: { "over2_5": String, "under2_5": String },
-            ggNg: { "gg": String, "ng": String }
-        },
-        default: () => ({
-            "1x2": { "1": "","x": "", "2": ""},
-            doubleChance: { "1x": "","12": "", "x2": ""},
-            overUnder: {"over2_5": "", "under2_5": ""},
-            ggNg: { "gg": "","ng": "" }
-        })
-    },
      awayTeamScore: {
         type: Number,
         default: 0
     },
-    amount: {
-        type: Number,
-        required: true,
-        default: 0
+    availableOdds: {
+        type: { 
+            "1x2": { "1": Number, "x": Number, "2": Number },
+            doubleChance: { "1x": Number, "12": Number, "x2": Number },
+            overUnder: { "over2_5": Number, "under2_5": Number },
+            ggNg: { "gg": Number, "ng": Number } 
+        },
+        default: () => ({ // Default to an empty object or a pre-filled structure
+            "1x2": { "1": null, "x": null, "2": null },
+            doubleChance: { "1x": null, "12": null, "x2": null },
+            overUnder: { "over2_5": null, "under2_5": null },
+            ggNg: { "gg": null, "ng": null }
+        })
     },
     eventStatus: {
         type: String,

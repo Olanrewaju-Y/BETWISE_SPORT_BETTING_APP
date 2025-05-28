@@ -1,17 +1,25 @@
 const express = require("express");
 const router = express.Router();
 
-const { handleAdminCreateEvent, handleDeleteAllUser, handleGetAllUsers,  handleGetAllEvents,
+const { 
+  handleAdminCreateEvent, 
+  handleDeleteAllUser, 
+  handleGetAllUsers,  
+  handleGetAllEvents,
   handleDeleteAllEvents,
   handleGetEventById,
-  handleUpdateGameResult } = require("../controllers/server");
+  handleUpdateGameOutcome, 
+  handlePlaceOdd,
+  handleGetPlacedOddsAndBet
+} = require("../controllers/server");
+
 const { authenticateToken, validateIsAdmin } = require("../middlewares/server");
 
 
+// ADMIN ROLES 
 
 
-
-// ADMIN POST GAMES 
+// Admin post games/events 
 router.post("/create-event", authenticateToken, validateIsAdmin, handleAdminCreateEvent);
 
 // Get all registered gamblers
@@ -26,11 +34,27 @@ router.get("/all-events", handleGetAllEvents);
 // delete all events
 router.delete("/delete-all-events", authenticateToken, validateIsAdmin, handleDeleteAllEvents);
 
-// Get an Event
+// Update Game Result
+router.put("/update-game-result/:id", authenticateToken, validateIsAdmin, handleUpdateGameOutcome)
+
+
+
+// USER ROLES
+
+// Get all Event
+router.get("/all-events", authenticateToken, handleGetAllEvents )
+
+// Get just one Event
 router.get("/event/:id", handleGetEventById);
 
-// Update Game Result
-router.put("/update-game-result/:id", authenticateToken, validateIsAdmin, handleUpdateGameResult)
+// Place Odds
+router.put("/place-Odd/:id", authenticateToken, handlePlaceOdd )
+
+// Book A Bet
+router.post("/book-a-bet", authenticateToken, handleGetPlacedOddsAndBet )
+
+
+
 
 
 // Export the routers

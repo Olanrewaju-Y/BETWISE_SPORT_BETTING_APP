@@ -6,6 +6,28 @@ const paymentSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+     walletBalance: {
+        type: Number,
+        ref: 'User',
+        required: true
+    },
+    walletHistory: {
+        type: String,
+        ref: 'User',
+        required: true
+    },
+    betSlipId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'BetSlip',
+        required: true
+    },
+    betSlipHistory: {
+        type: String,
+        ref: 'BetSlip',
+        required: true
+    },
+
+
     amount: {
         type: Number,
         required: true

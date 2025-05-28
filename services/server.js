@@ -68,6 +68,34 @@ const sendForgetPasswordEmail = async (user, token) => {
    }
 }
 
+// Check wallet balance
+
+const checkWalletBalance = async (userId, amountToCheck) => {
+    if (!userId) {
+        return { sufficient: false, message: "User ID is required." };
+    }
+    if (typeof amountToCheck !== 'number' || amountToCheck <= 0) {
+        return { sufficient: false, message: "Amount to check must be a positive number." };
+    }
+
+    try {
+        const user = await User.findById(userId).select('walletBalance'); // Only select walletBalance
+
+        if (!user) {
+            console.warn(`User not found with ID: ${userId} for wallet balance check.`);
+            return { sufficient: false, message: "User not found." };
+        }
+
+        if (user.walletBalance >= amountToCheck) {
+            return { sufficient: true, currentBalance: user.walletBalance };
+        } else {
+            return { sufficient: false, message: "Insufficient wallet balance.", currentBalance: user.walletBalance };
+        }
+    } catch (error) {
+        console.error(`Error checking wallet balance for user ${userId}:`, error);
+        return { sufficient: false, message: "Error checking wallet balance." };
+    }
+};
 
 
 
@@ -78,5 +106,6 @@ const sendForgetPasswordEmail = async (user, token) => {
 module.exports = {
     generateAccessToken,
     generateRefreshToken,
-    sendForgetPasswordEmail
+    sendForgetPasswordEmail,
+    checkWalletBalance
 }
