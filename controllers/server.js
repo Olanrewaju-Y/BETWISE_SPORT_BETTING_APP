@@ -202,12 +202,12 @@ const handleResetPassword = async (req, res) => {
 //  Create an Event - ONLY ADMIN CAN
 const handleAdminCreateEvent = async (req, res) => { 
 
-  const { eventType, eventDescription, eventImage, homeTeam, homeTeamPoint, drawPoint, awayTeamPoint, awayTeam, availableOdds, eventStatus, eventReviews, eventDate, eventTime } = req.body;
+  const { eventType, eventDescription, eventImage, homeTeam, awayTeam, availableOdds, eventStatus, eventReviews, eventDate, eventTime } = req.body;
   const adminUser = req.user; // User object from authenticated token
 
   try {
     // --- Event Data Validation ---
-    if ( !homeTeamPoint || !drawPoint || !awayTeamPoint || !eventType || !homeTeam || !awayTeam || !eventDescription || !eventDate || !eventTime) {
+    if ( !eventType || !homeTeam || !awayTeam || !eventDescription || !eventDate || !eventTime) {
         res.status(400).json({
             message: "All core event fields are required: eventType, homeTeam, awayTeam, eventDescription, eventDate, eventTime."
         });
@@ -219,8 +219,7 @@ const handleAdminCreateEvent = async (req, res) => {
       userId: adminUser._id, // CRITICAL: Set the userId from the authenticated admin
       // publicEventId: generatedPublicEventId, // Assign the generated public ID
       eventType,      
-      homeTeam, 
-      homeTeamPoint, drawPoint, awayTeamPoint,
+      homeTeam,
       awayTeam, 
       availableOdds,
       eventDescription,
@@ -289,7 +288,7 @@ const handleDeleteAllEvents = async (req, res) => {
 // Update game Outcome
 const handleUpdateGameOutcome = async (req, res) => {
   const eventId = req.params.id;
-  const { homeTeamPoint, drawPoint, awayTeamPoint, homeTeamScore, awayTeamScore, eventStatus } = req.body;
+  const { homeTeamScore, awayTeamScore, eventStatus } = req.body;
 
   try {
     const updateFields = {};
@@ -299,27 +298,6 @@ const handleUpdateGameOutcome = async (req, res) => {
         return res.status(400).json({ message: "homeTeamScore must be a non-negative number." });
       }
       updateFields.homeTeamScore = homeTeamScore;
-    }
-
-    if (homeTeamPoint !== undefined) {
-      if (typeof homeTeamPoint !== 'number' || homeTeamPoint < 0) {
-        return res.status(400).json({ message: "homeTeamPoint must be a non-negative number." });
-      }
-      updateFields.homeTeamPoint = homeTeamPoint;
-    }
-
-    if (drawPoint !== undefined) {
-      if (typeof drawPoint !== 'number' || drawPoint < 0) {
-        return res.status(400).json({ message: "drawPoint must be a non-negative number." });
-      }
-      updateFields.drawPoint = drawPoint;
-    }
-
-    if (awayTeamPoint !== undefined) {
-      if (typeof awayTeamPoint !== 'number' || awayTeamPoint < 0) {
-        return res.status(400).json({ message: "awayTeamPoint must be a non-negative number." });
-      }
-      updateFields.awayTeamPoint = awayTeamPoint;
     }
 
     if (awayTeamScore !== undefined) {

@@ -18,6 +18,8 @@ const {
 
 
 
+// AUTH ROLES
+
 // Sign - up API AND ENDPOINT
 router.post("/signup", validateRegister, validateEmailFormat, handleUserSignUp);
 

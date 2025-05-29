@@ -69,7 +69,6 @@ const sendForgetPasswordEmail = async (user, token) => {
 }
 
 // Check wallet balance
-
 const checkWalletBalance = async (userId, amountToCheck) => {
     if (!userId) {
         return { sufficient: false, message: "User ID is required." };
