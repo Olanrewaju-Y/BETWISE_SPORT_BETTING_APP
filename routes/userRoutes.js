@@ -7,7 +7,8 @@ const {
   handlePlaceOdd,
   handleCreateBetSlip,
   handleDeleteAllPlacedOdds,
-  handleGetAllBetSlips
+  handleGetAllBetSlips,
+  handleDeleteUserBetSlips
 } = require("../controllers/server");
 
 const { authenticateToken, validateIsAdmin } = require("../middlewares/server");
@@ -32,7 +33,20 @@ router.delete("/delete-all-placed-Odds", authenticateToken, handleDeleteAllPlace
 router.post("/create-bet-slip", authenticateToken, handleCreateBetSlip);
 
 // Get all Bet Slips
-router.post("/all-bet-slips", authenticateToken, handleGetAllBetSlips )
+router.get("/user-bet-slips", authenticateToken, handleGetAllBetSlips )
+
+// Delete All User BetSlips
+router.delete("/delete-user-bet-slips", authenticateToken, handleDeleteUserBetSlips )
+
+
+
+
+
+
+
+
+
+module.exports = router
 
 
 

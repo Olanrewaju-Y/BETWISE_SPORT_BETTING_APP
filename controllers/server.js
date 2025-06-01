@@ -606,9 +606,38 @@ const handleCreateBetSlip = async (req, res) => {
 
 // Get all Bet Slips And Outcomes
 const handleGetAllBetSlips = async (req, res) => {
-  const allBetSlips = await BetSlip.find().populate('oddIds');
+   const userId = req.user.id; 
+  try {
+    // Find all bet slips where the userId field matches the authenticated user's ID
+    const userBetSlips = await BetSlip.find({ userId: userId }).populate('oddIds');
 
-  res.status(200).json(allBetSlips);
+    if(!userBetSlips) {
+      return res.status(400).json({
+        message: "Invalid. user BetSlip not found"
+      })
+    }
+
+    res.status(200).json(userBetSlips);
+  } catch (error) {
+    console.error("Error in handleGetAllBetSlips:", error);
+    res.status(500).json({ message: "Error fetching bet slips.", error: error.message });
+  }
+}
+
+// Delete All User Bet Slips
+const handleDeleteUserBetSlips = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const result = await BetSlip.deleteMany({ userId: userId });
+    res.status(200).json({
+      message: "All bet slips deleted successfully.",
+      deletedCount: result.deletedCount
+    });
+    console.log(`All bet slips for user ${userId} deleted. Count: ${result.deletedCount})`);
+} catch (error) {
+    console.error("Error in handleDeleteUserBetSlips:", error);
+    res.status(500).json({ message: "Error deleting bet slips.", error: error.message });
+}
 }
 
 
@@ -632,6 +661,7 @@ module.exports = {
   handlePlaceOdd,
   handleDeleteAllPlacedOdds,
   handleCreateBetSlip,
-  handleGetAllBetSlips
+  handleGetAllBetSlips,
+  handleDeleteUserBetSlips
   
 };
