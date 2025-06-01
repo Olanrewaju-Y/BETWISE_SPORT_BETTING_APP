@@ -5,7 +5,9 @@ const {
   handleGetAllEvents,
   handleGetEventById, 
   handlePlaceOdd,
-  handleGetPlacedOddsAndBet
+  handleCreateBetSlip,
+  handleDeleteAllPlacedOdds,
+  handleGetAllBetSlips
 } = require("../controllers/server");
 
 const { authenticateToken, validateIsAdmin } = require("../middlewares/server");
@@ -21,11 +23,16 @@ router.get("/all-events", authenticateToken, handleGetAllEvents )
 router.get("/event/:id", handleGetEventById);
 
 // Place Odds
-router.put("/place-Odd/:id", authenticateToken, handlePlaceOdd )
+router.patch("/place-odd/:id", authenticateToken, handlePlaceOdd )
 
-// Book A Bet
-router.post("/book-a-bet", authenticateToken, handleGetPlacedOddsAndBet )
+// Delete Placed Odds
+router.delete("/delete-all-placed-Odds", authenticateToken, handleDeleteAllPlacedOdds )
 
+// Create a Bet Slip with specific Odds
+router.post("/create-bet-slip", authenticateToken, handleCreateBetSlip);
+
+// Get all Bet Slips
+router.post("/all-bet-slips", authenticateToken, handleGetAllBetSlips )
 
 
 

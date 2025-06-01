@@ -38,7 +38,7 @@ const betSlipSchema = new mongoose.Schema({
     //     dafault: 1,
     //     required: true
     // },
-    betStatus: {
+    betSlipStatus: {
         type: String,
         enum: ["won", "lost", "pending", "void", "cancelled"], // Added enum
         default: "pending"

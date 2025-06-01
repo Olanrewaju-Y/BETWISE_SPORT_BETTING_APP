@@ -5,9 +5,11 @@ dotenv.config();
 const Event = require("../models/eventModel");
 const Odd = require("../models/oddModel");
 const BetSlip = require("../models/betSlipModel");
-const { sendForgetPasswordEmail, generateAccessToken, generateRefreshToken } = require("../services/server");
+const { sendForgetPasswordEmail, generateAccessToken, generateRefreshToken, extractNumericOddValue, settleBetSlipStatus } = require("../services/server");
 const { checkWalletBalance } = require("../services/server");
 const mongoose = require('mongoose'); // Import mongoose for transactions
+const { MIN_BET_AMOUNT } = require('../config/server'); 
+
 
 
 // AUTH ROLES
@@ -16,7 +18,7 @@ const handleUserSignUp = async (req, res) => {
       const {
       userName,
       password,
-      below18,
+      age,
       walletBalance,
       nickName,
       role,
@@ -27,7 +29,7 @@ const handleUserSignUp = async (req, res) => {
  
   try {
 
-    if (below18 < 18 ) {
+    if (age < 18 ) {
       res.status(400).json({
         message: "User must be 18 or above to register",
       });
@@ -39,8 +41,7 @@ const handleUserSignUp = async (req, res) => {
       })
      return console.log("wallet balance must be Zero upon Registration")
     }
-    
-    const existingUser = await User.findOne({ userName });
+    const existingUser = await User.findOne({ userName: userName });
 
     if (existingUser) {
       res.status(400).json({
@@ -53,7 +54,7 @@ const handleUserSignUp = async (req, res) => {
     const newUser = new User({
       userName,
       password: hashedPassword,
-      below18,
+      age,
       walletBalance,
       nickName,
       role,
@@ -68,7 +69,7 @@ const handleUserSignUp = async (req, res) => {
       message: "User created successfully",
       user: {
         userName: newUser.userName,
-        below18: newUser.below18,
+        age: newUser.age,
         walletBalance: newUser.walletBalance,
         nickName: newUser.nickName,
         role: newUser.role,
@@ -88,12 +89,8 @@ const handleUserSignUp = async (req, res) => {
 
 
 const handleUserLogin = async (req, res) => {
-    const { userName, password } = req.body;
-
+    const { userName, password } = req.body
    try{
-  // First stage validation on inputs
-
-    // second stage validation with database
     const existingUser = await User.findOne({ userName })
 
     if (!existingUser) {
@@ -119,7 +116,7 @@ const handleUserLogin = async (req, res) => {
         message: "User logged in successfully",
         user: {
             userName: existingUser?.userName,
-            below18: existingUser?.below18,
+            age: existingUser?.age,
             walletBalance: existingUser?.walletBalance,
             nickName: existingUser?.nickName,
             role: existingUser?.role,
@@ -134,7 +131,6 @@ const handleUserLogin = async (req, res) => {
         refreshToken // Send refresh token to the client if needed
     })
     console.log("User logged in successfully:", existingUser.userName);
-
    }
    catch(error){
     res.status(500).json({ message: error.message });
@@ -290,19 +286,23 @@ const handleUpdateGameOutcome = async (req, res) => {
   const eventId = req.params.id;
   const { homeTeamScore, awayTeamScore, eventStatus } = req.body;
 
+const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const updateFields = {};
 
     if (homeTeamScore !== undefined) {
       if (typeof homeTeamScore !== 'number' || homeTeamScore < 0) {
-        return res.status(400).json({ message: "homeTeamScore must be a non-negative number." });
+      throw new Error("homeTeamScore must be a non-negative number.");
       }
       updateFields.homeTeamScore = homeTeamScore;
     }
 
     if (awayTeamScore !== undefined) {
       if (typeof awayTeamScore !== 'number' || awayTeamScore < 0) {
-        return res.status(400).json({ message: "awayTeamScore must be a non-negative number." });
+      throw new Error("awayTeamScore must be a non-negative number.");
+     
       }
       updateFields.awayTeamScore = awayTeamScore;
     }
@@ -310,37 +310,62 @@ const handleUpdateGameOutcome = async (req, res) => {
     if (eventStatus !== undefined) {
       const allowedEventStatuses = Event.schema.path('eventStatus').enumValues;
       if (!allowedEventStatuses.includes(eventStatus)) {
-        return res.status(400).json({
-            message: `Invalid eventStatus. Must be one of: ${allowedEventStatuses.join(', ')}`
-        });
+          throw new Error(`Invalid eventStatus. Must be one of: ${allowedEventStatuses.join(', ')}`);
       }
       updateFields.eventStatus = eventStatus;
     }
 
     if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ message: "No valid fields provided for update." });
-    }
+      throw new Error("No valid fields provided for update.");
+   }
 
     const updatedEvent = await Event.findByIdAndUpdate(
       eventId,
       { $set: updateFields },
-      { new: true, runValidators: true }
+     { new: true, runValidators: true, session: session } // Run in session
+   
     );
 
     if (!updatedEvent) {
-      return res.status(404).json({ message: "Event not found." });
+throw new Error("Event not found.");
     }
+
+    // --- Bet Settlement Logic Trigger ---
+    // Settle bets if the event status is updated to a final one AND scores are definitively set.
+    const finalStatusesForSettlement = ["completed", "ended"]; // Define statuses that trigger settlement
+    if (updateFields.eventStatus && finalStatusesForSettlement.includes(updatedEvent.eventStatus)) {
+        const finalHomeScoreToSettle = updatedEvent.homeTeamScore;
+        const finalAwayScoreToSettle = updatedEvent.awayTeamScore;
+
+        if (typeof finalHomeScoreToSettle === 'number' && typeof finalAwayScoreToSettle === 'number') {
+            // Call the service function to settle bets, passing the session
+            await settleBetSlipStatus(updatedEvent._id, finalHomeScoreToSettle, finalAwayScoreToSettle, session);
+        } else {
+            // This scenario (event completed but scores missing) might be an issue.
+            // For now, we log a warning. Depending on business rules, this might need to abort the transaction.
+            console.warn(`Event ${updatedEvent._id} marked as ${updatedEvent.eventStatus} but scores are missing/invalid. Bets not settled. This might require manual intervention or a different event status.`);
+        }
+    }
+
+    await session.commitTransaction();
+
     res.status(200).json(updatedEvent);
     console.log(`Event ${updatedEvent._id} updated successfully. New status: ${updatedEvent.eventStatus}`);
+
   } catch (error) {
-    if (error.name === 'CastError' && error.path === '_id') {
-        return res.status(400).json({ message: "Invalid event ID format." });
+    if (session.inTransaction()) {
+      await session.abortTransaction();
     }
-    if (error.name === 'ValidationError') {
-        return res.status(400).json({ message: "Validation failed.", errors: error.errors });
-    }
-    console.error("Error in handleUpdateGameResult:", error);
-    res.status(500).json({ message: "Error updating event.", error: error.message });
+    console.error("Error in handleUpdateGameOutcome:", error);
+    // Determine appropriate status code based on error type
+    let statusCode = 500; // Default to internal server error
+    if (error.message === "Event not found.") statusCode = 404;
+    else if (error.name === 'CastError' && error.path === '_id') statusCode = 400;
+    else if (error.name === 'ValidationError' || error.message.startsWith("Invalid") || error.message.startsWith("No valid fields") || error.message.includes("must be a non-negative number")) statusCode = 400;
+    
+    res.status(statusCode).json({ message: error.message, ...(error.errors && { errors: error.errors }) });
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -407,6 +432,13 @@ const handlePlaceOdd = async (req, res) => {
         return res.status(404).json({ message: "User not found." });
     }
 
+    // 4. Calculate and validate the numeric value of the selected odd
+    const calculatedOddValue = extractNumericOddValue(selectedOdd);
+    if (calculatedOddValue === null || calculatedOddValue <= 0) {
+        // No transaction to abort here as it hasn't started for this operation
+        return res.status(400).json({ message: "Invalid selected odd. The calculated value is not a positive number or could not be determined." });
+    }
+
     // 5. Create the Odd
     const newOdd = new Odd({
         userId: user._id,
@@ -414,6 +446,7 @@ const handlePlaceOdd = async (req, res) => {
         homeTeam: event.homeTeam,
         awayTeam: event.awayTeam,
         selectedOdd: selectedOdd, 
+        totalSelectedOddsValue: calculatedOddValue, // Use the validated calculated value
         eventType: event.eventType, 
         eventDate: event.eventDate 
     });
@@ -431,133 +464,152 @@ const handlePlaceOdd = async (req, res) => {
   }
 };
 
-// Get all placed Odds and Place Bet 
-const handleGetPlacedOddsAndBet = async (req, res) => {
-  const userId = req.user.id
-  const { betAmount } = req.body;
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
- 
+//  Delete All Place Odds (all Cart Items)
+const handleDeleteAllPlacedOdds = async (req, res) => {
   try {
-    // 1. Fetch all "upcoming", "ongoing" Odd documents for the user
-    
-      const selectedOddsDocs = await Odd.find({ 
-      userId: userId,
-      eventOddStatus: { $in: ["upcoming", "ongoing"] } // Filter by eventOddStatus
-    }).session(session);
- 
- 
-    if (!selectedOddsDocs || selectedOddsDocs.length === 0) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: "No odds selected to place a bet." });
-    }
- 
-    // 2. Validate betAmount
-    if (typeof betAmount !== 'number' || betAmount <= 0) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Invalid bet amount." });
-    }
- 
-    // 3. Check user's wallet balance using the utility function
-    const balanceCheckResult = await checkWalletBalance(userId, betAmount);
-    if (!balanceCheckResult.sufficient) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: balanceCheckResult.message || "Failed to verify wallet balance." });
-    }
- 
-    // 4. Fetch user to update wallet (already implicitly checked by checkWalletBalance if user exists)
-    const user = await User.findById(userId).session(session);
-    if (!user) { // Should ideally not happen if checkWalletBalance passed and user exists
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: "User not found." });
-    }
- 
-    // 5. Calculate total accumulated odds
-    let accumulatedOdds = 1;
-    for (const oddDoc of selectedOddsDocs) {
-      if (oddDoc.selectedOdd && typeof oddDoc.selectedOdd === 'number' && oddDoc.selectedOdd > 0) {
-        accumulatedOdds *= oddDoc.selectedOdd;
-      } else {
-        // Handle case where an oddDoc might have an invalid selectedOdd value
-        console.warn(`Invalid selectedOdd value in Odd document ${oddDoc._id}`);
-        // Optionally, you could choose to abort or skip this odd.
-        // For now, we'll let it proceed, potentially resulting in accumulatedOdds = 0 if all are invalid.
-      }
-    }
- 
-    // If no valid odds were found to multiply, or if an odd was 0, accumulatedOdds might be 1 (if only one invalid odd) or 0.
-    // A bet with odds of 1 or 0 is usually not sensible.
-    if (accumulatedOdds <= 1 && selectedOddsDocs.length > 0) { // Check if any valid odds were processed to make odds > 1
-        // If only one selection and its odd is 1, it's a valid bet (returns stake).
-        // If multiple selections result in accumulated odds of 1, or if it's 0, it's problematic.
-        if (accumulatedOdds === 0) {
-            await session.abortTransaction();
-            session.endSession();
-            return res.status(400).json({ message: "Cannot place bet with zero accumulated odds due to invalid selections." });
-        }
-        // Allow odds of 1 (e.g. a single bet at 1.00, or an accumulator that results in 1.00)
-    }
- 
-    // 6. Calculate potential payout
-    const potentialPayout = accumulatedOdds * betAmount * 50;
- 
-    // 7. Deduct betAmount from user's wallet
-    user.walletBalance -= betAmount;
-    await user.save({ session });
- 
-    // 8. Create the BetSlip document
-    //    Note: The `oddId` field in BetSlip is singular. If this is an accumulator
-    //    from multiple `Odd` docs, `oddId` might not be suitable here.
-    //    You might store an array of chosen outcomes or references to `Odd` docs.
-    //    For this example, we'll populate based on the accumulator.
-    const oddIdsToInclude = selectedOddsDocs.map(doc => doc._id);
-    const newBetSlip = new BetSlip({
-      userId: userId,
-      oddId: oddIdsToInclude, // This needs to be decided based on BetSlip's purpose for accumulators.
-      // If BetSlip is for one Odd selection, this function needs to change.
-      // If it's an accumulator, oddId might be an array of Odd._id or not used.
-      totalOddsValue: parseFloat(accumulatedOdds.toFixed(2)), // Store accumulated odds, rounded
-      betAmount: betAmount,
-      totalBets: selectedOddsDocs.length, // Number of selections in this accumulator
-      potentialPayout: parseFloat(potentialPayout.toFixed(2)), // Store potential payout, rounded
-      betStatus: "pending"
+    const result = await Odd.deleteMany({});
+    res.status(200).json({
+      message: "All Odds deleted successfully.",
+      deletedCount: result.deletedCount
     });
-    await newBetSlip.save({ session });
- 
-    // 9. Optionally: Mark the selected Odd documents as "processed" or delete them
-    // This prevents them from being included in future bet slips.
-    // Example:
-    // const oddIdsToProcess = selectedOddsDocs.map(doc => doc._id);
-    // await Odd.deleteMany({ _id: { $in: oddIdsToProcess } }).session(session);
-
-    // Or update their status:
-    await Odd.updateMany({ _id: { $in: oddIdsToProcess } }, { $set: { status: "processed" } }).session(session);
- 
-    // 10. Commit the transaction
-    await session.commitTransaction();
-    session.endSession();
- 
-    res.status(201).json({
-      message: "Bet placed successfully!",
-      betSlip: newBetSlip
-    });
-    console.log(`Bet slip ${newBetSlip._id} created for user ${userId}`);
-
+    console.log(`All Odds deleted. Count: ${result.deletedCount})`);
   } catch (error) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    session.endSession();
-    console.error("Error in handleGetPlacedOddsAndBet:", error);
-    res.status(500).json({ message: "Error placing bet.", error: error.message });
+    console.error("Error in handleDeleteAllPlacedOdds:", error);
+    res.status(500).json({ message: "Error deleting Odds.", error: error.message });
   }
 }
 
+// Create Bet Slip with specific Odd Ids
+const handleCreateBetSlip = async (req, res) => {
+  const userId = req.user.id;
+  const { oddIds, betAmount } = req.body;
+  console.log("Attempting to create bet slip for userId:", userId); 
+  console.log("Received oddIds:", oddIds); 
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // 1. Validate input
+    if (!Array.isArray(oddIds) || oddIds.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "oddIds must be a non-empty array." });
+    }
+      if (typeof betAmount !== 'number' || betAmount < MIN_BET_AMOUNT) {
+     
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: `Invalid bet amount. Minimum bet is ${MIN_BET_AMOUNT}.` });
+    }
+
+    // 2. Fetch Odd documents and validate them
+    const selectedOddsDocs = await Odd.find({ 
+      _id: { $in: oddIds }, 
+      userId: userId, // Ensure odds belong to the user
+      eventOddStatus: { $in: ["upcoming", "ongoing"] } // Ensure odds are bettable
+    }).session(session);
+
+    if (selectedOddsDocs.length !== oddIds.length) {
+      console.log(selectedOddsDocs);
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "One or more selected odds are invalid, do not belong to the user, or are not in a bettable state." });
+    }
+
+    // 3. Calculate total accumulated odds
+    let accumulatedOdds = 1;
+    
+    for (const oddDoc of selectedOddsDocs) {
+
+     const numericOddValue = oddDoc.totalSelectedOddsValue; // Using the pre-calculated value
+   console.log(`DEBUG: For Odd ${oddDoc._id}, using stored totalSelectedOddsValue: ${numericOddValue}`);
+     
+  
+  if (numericOddValue && numericOddValue > 0) {
+        accumulatedOdds *= numericOddValue;
+
+      } else {
+        await session.abortTransaction();
+        session.endSession();
+        console.warn(`Invalid or missing numeric odd value in Odd document ${oddDoc._id}:`, oddDoc.selectedOdd);
+            return res.status(400).json({ message: `Invalid odd value (${numericOddValue}) found in selection for event: ${oddDoc.homeTeam} vs ${oddDoc.awayTeam}. Stored totalSelectedOddsValue might be incorrect.` });
+       }
+    }
+
+    if (accumulatedOdds <= 0) { // Or accumulatedOdds < 1 depending on rules for single bets at 1.0
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "Accumulated odds must be greater than 0." });
+    }
+
+    // 4. Check user's wallet balance
+    const balanceCheckResult = await checkWalletBalance(userId, betAmount, session); // Pass session if checkWalletBalance supports it
+    if (!balanceCheckResult.sufficient) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: balanceCheckResult.message || "Insufficient wallet balance." });
+    }
+
+    // 5. Deduct betAmount from user's wallet
+    const user = await User.findById(userId).session(session); // User should exist if balance check passed
+    user.walletBalance -= betAmount;
+    await user.save({ session });
+
+    // 6. Calculate potential payout (Standard: stake * total odds)
+    const potentialPayout = accumulatedOdds * betAmount;
+
+    // 7. Create the BetSlip document
+    const newBetSlip = new BetSlip({
+      userId: userId,
+      oddIds: selectedOddsDocs.map(doc => doc._id),
+      totalOddsValue: parseFloat(accumulatedOdds.toFixed(2)),
+      betAmount: betAmount,
+      totalBets: selectedOddsDocs.length,
+      potentialPayout: parseFloat(potentialPayout.toFixed(2)),
+      betSlipStatus: "pending"
+    });
+    await newBetSlip.save({ session });
+
+    // 8. Update status of the Odd documents to "processed"
+    const processedOddIds = selectedOddsDocs.map(doc => doc._id);
+    await Odd.updateMany({ _id: { $in: processedOddIds } }, { $set: { eventOddStatus: "processed" } }).session(session);
+
+    // 9. Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(201).json({
+      message: "Bet slip created successfully!",
+      betSlip: newBetSlip
+    });
+    console.log(`Bet slip ${newBetSlip._id} created for user ${userId} with specific odds.`);
+
+  } catch (error) {
+    if (session.inTransaction()) {
+        await session.abortTransaction(); // Abort transaction on error
+    }
+    console.error("Error in handleCreateBetSlip:", error);
+    res.status(500).json({ message: "Error creating bet slip.", error: error.message });
+  } finally {
+    if (session && session.inTransaction()) { // Ensure session exists and is active before trying to end it
+        // If commitTransaction() was successful, session is already ended.
+        // If abortTransaction() was called, session is already ended.
+        // This handles cases where an error occurs before commit/abort.
+        // However, Mongoose's session.endSession() is idempotent, so calling it again is safe.
+    }
+    if (session) { // Always try to end the session if it was started
+        await session.endSession();
+      }
+    }
+};
+
+// Get all Bet Slips And Outcomes
+const handleGetAllBetSlips = async (req, res) => {
+  const allBetSlips = await BetSlip.find().populate('oddIds');
+
+  res.status(200).json(allBetSlips);
+}
 
 
 
@@ -578,6 +630,8 @@ module.exports = {
   handleGetEventById,
   handleUpdateGameOutcome, 
   handlePlaceOdd,
-  handleGetPlacedOddsAndBet
+  handleDeleteAllPlacedOdds,
+  handleCreateBetSlip,
+  handleGetAllBetSlips
   
 };

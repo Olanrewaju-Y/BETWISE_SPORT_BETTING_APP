@@ -28,8 +28,8 @@ router.delete("/delete-all-users", authenticateToken, validateIsAdmin, handleDel
 // delete all events
 router.delete("/delete-all-events", authenticateToken, validateIsAdmin, handleDeleteAllEvents);
 
-// Update Game Result
-router.put("/update-game-result/:id", authenticateToken, validateIsAdmin, handleUpdateGameOutcome)
+// Update Game Outcome
+router.put("/update-game-outcome/:id", authenticateToken, validateIsAdmin, handleUpdateGameOutcome)
 
 
 

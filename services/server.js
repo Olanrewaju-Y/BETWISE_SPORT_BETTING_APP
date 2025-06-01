@@ -3,23 +3,25 @@ const dotenv = require("dotenv");
 dotenv.config();
 const jwt = require('jsonwebtoken');
 const User = require("../models/userModel");
-
+const mongoose = require('mongoose');
+const BetSlip = require('../models/betSlipModel'); // Import BetSlip model
+const Odd = require('../models/oddModel');    
 
 
 // Generate ACCESS token
-const generateAccessToken = ( user ) => { // Renamed parameter for clarity
+const generateAccessToken = ( user ) => { 
 const accessToken = jwt.sign(
-        { id: user._id }, // Use user._id
+        { id: user._id }, 
         process.env.ACCESS_TOKEN,
-        { expiresIn: "5m" }
+        { expiresIn: "30m" }
       )
       return accessToken;
 }
 
 // Generate REFRESH token
-const generateRefreshToken = ( user ) => { // Renamed parameter for clarity
+const generateRefreshToken = ( user ) => { 
 const refreshToken = jwt.sign(
-        { id: user._id }, // Use user._id
+        { id: user._id }, 
         process.env.REFRESH_TOKEN,
         { expiresIn: "30d" }
       )
@@ -30,6 +32,7 @@ return refreshToken;
 // send Forget Password Email
 const sendForgetPasswordEmail = async (user, token) => { 
    
+    const clientAppUrl = process.env.CLIENT_APP_URL || 'https://www.betwise.com'; // Fallback if not set
     try {
         const mailTransporter = nodemailer.createTransport({
             service: "gmail",
@@ -47,15 +50,15 @@ const sendForgetPasswordEmail = async (user, token) => {
             <hi>Password Reset Notification</h1>
 
             Here is the token to reset your password please click on the button below,
+            <br> 
             <br>
-            <br>            
-            <button type="button"> <a class"" href='https://www.betwise.com/reset-password/${token}'>Reset Password </a></button>
+            <button type="button" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border: none; border-radius: 5px; cursor: pointer;"> <a style="color: white; text-decoration: none;" href='${clientAppUrl}/reset-password/${token}'>Reset Password </a></button>
             <br>
             <br>
             <br>
                 if the button does not work for any reason, please click the link below
-
-                <a href='https://www.betwise.com/reset-password/${token}.'>Reset Password </a>
+                <br>
+                <a href='${clientAppUrl}/reset-password/${token}'>${clientAppUrl}/reset-password/${token}</a>
             <br>
             <br>
             <br>
@@ -69,16 +72,19 @@ const sendForgetPasswordEmail = async (user, token) => {
 }
 
 // Check wallet balance
-const checkWalletBalance = async (userId, amountToCheck) => {
+const checkWalletBalance = async (userId, amountToCheck, session = null) => { // Added session parameter
     if (!userId) {
         return { sufficient: false, message: "User ID is required." };
     }
     if (typeof amountToCheck !== 'number' || amountToCheck <= 0) {
         return { sufficient: false, message: "Amount to check must be a positive number." };
     }
-
     try {
-        const user = await User.findById(userId).select('walletBalance'); // Only select walletBalance
+        const query = User.findById(userId).select('walletBalance');
+        if (session) {
+            query.session(session); // Use session if provided
+        }
+        const user = await query;
 
         if (!user) {
             console.warn(`User not found with ID: ${userId} for wallet balance check.`);
@@ -97,6 +103,185 @@ const checkWalletBalance = async (userId, amountToCheck) => {
 };
 
 
+// Helper function to extract numeric odd value from the Odd model's selectedOdd structure
+function extractNumericOddValue(selectedOddObject) {
+  if (!selectedOddObject || typeof selectedOddObject !== 'object') {
+      console.warn("selectedOddObject is invalid:", selectedOddObject);
+      return null;
+  }
+  let multipliedOddValue = 1; // Initialize to 1 for multiplication
+  let foundNumericOdd = false;
+
+  // Iterate over market types (e.g., "1x2", "doubleChance")
+  for (const marketTypeKey in selectedOddObject) {
+      // Explicitly skip a top-level _id key if it's not intended as a market type
+      if (marketTypeKey === '_id') {
+          continue;
+      }
+
+      if (selectedOddObject.hasOwnProperty(marketTypeKey) &&
+          typeof selectedOddObject[marketTypeKey] === 'object' &&
+          selectedOddObject[marketTypeKey] !== null) {
+          const marketObject = selectedOddObject[marketTypeKey];
+          // Iterate over specific picks within the market type (e.g., "homeTeamWinPoint", "1x")
+          for (const pickKey in marketObject) {
+              const oddValue = marketObject[pickKey];
+              // Log the value and its type for every potential odd
+              // console.log(`DEBUG extractNumericOddValue: marketTypeKey='${marketTypeKey}', pickKey='${pickKey}', value='${oddValue}', typeof='${typeof oddValue}'`);
+              
+              if (marketObject.hasOwnProperty(pickKey) && typeof oddValue === 'number' && !isNaN(oddValue)) { // Check if it's a number and not NaN
+                  if (oddValue <= 0) { // Odds should generally be positive
+                    console.warn(`Found non-positive odd value (${oddValue}) in selectedOddObject for pick ${pickKey}. Skipping this value for multiplication.`);
+                    continue; // Skip non-positive odds in multiplication
+                  }
+                  multipliedOddValue *= oddValue; // Multiply the numeric odd value
+                  foundNumericOdd = true;
+              }
+          }
+      }
+  }
+  
+  if (foundNumericOdd) {
+    return multipliedOddValue;
+  } else {
+    console.warn("No numeric odd values found in selectedOddObject to multiply:", selectedOddObject);
+    return null; // Return null if no valid numeric odds were found
+  }
+}
+
+// Helper function to settle bets for a completed event
+
+const settleBetSlipStatus = async (eventId, finalHomeScore, finalAwayScore, session) => { // session is passed for transactional integrity
+  console.log(`Attempting to settle bets for event ID: ${eventId} with score ${finalHomeScore} - ${finalAwayScore}`);
+
+  // 1. Find all Odd documents related to the event that are in a "processed" state
+  // (meaning they are part of a created bet slip).
+  const relevantOddDocs = await Odd.find({
+    eventId: eventId,
+    eventOddStatus: "processed" // Odds are marked 'processed' when a bet slip is created
+  }).select('_id').session(session);
+
+  if (!relevantOddDocs.length) {
+    console.log(`No processed odds found for event ${eventId}. No bet slips to settle based on this event.`);
+    return;
+  }
+
+  const relevantOddIds = relevantOddDocs.map(o => o._id);
+
+  // 2. Find all "pending" BetSlips that contain any of these relevant Odd IDs.
+  const pendingBetSlips = await BetSlip.find({
+    oddIds: { $in: relevantOddIds },
+    betSlipStatus: "pending"
+  }).populate('oddIds') // Populate the full Odd documents
+    .session(session);
+
+  if (pendingBetSlips.length === 0) {
+    console.log(`No pending bet slips found containing odds for event ${eventId} to settle.`);
+    return;
+  }
+
+  for (const betSlip of pendingBetSlips) {
+    let allOddsInSlipWon = true; // Assume the accumulator wins until an odd loses
+
+    try {        
+        // Iterate over each Odd in the BetSlip to check if its selection won
+      for (const oddDoc of betSlip.oddIds) {
+
+        if (oddDoc.eventId.toString() !== eventId.toString()) {
+            // This odd is for a different event, its outcome is not determined yet by this event's settlement.
+            // For an accumulator to win, ALL its events must conclude and ALL selections must win.
+            // If this event is just one of many, the betslip remains pending.
+            // This logic might need adjustment based on how multi-event accumulators are handled.
+            // For now, if an odd is not for the current event, we assume the betslip cannot be fully settled yet.
+            // A more robust system might check if ALL events in the betslip are now "completed".
+            // For this iteration, we'll assume a betslip is settled based on the outcome of THIS event
+            // if all its odds are from this event. If not, it's more complex.
+            // Let's simplify: if any odd in the slip is NOT from this event, the slip remains pending.
+            // This is a safe default. A better approach would be to check if ALL events in the betslip are completed.
+            // For now, we will only settle betslips where ALL odds are from the event being settled.
+            const allOddsFromThisEvent = betSlip.oddIds.every(o => o.eventId.toString() === eventId.toString());
+            if (!allOddsFromThisEvent) {
+                allOddsInSlipWon = false; // Mark as not fully determined by this event alone
+                console.log(`BetSlip ${betSlip._id} contains odds from other events. It will not be settled now.`);
+                break; // Move to the next betslip
+            }
+        }
+
+        let currentOddWon = false;
+        const selectedMarket = oddDoc.selectedOdd;
+
+        for (const marketType in selectedMarket) { // e.g., "1x2", "doubleChance"
+          const marketPicks = selectedMarket[marketType];
+          for (const pickKey in marketPicks) { // e.g., "homeTeamWinPoint", "1x"
+            const oddValue = marketPicks[pickKey];
+            if (typeof oddValue === 'number' && oddValue > 0) { // This is the selected pick
+              // Determine if this pick won
+              if (marketType === "1x2") {
+                if (pickKey === "homeTeamWinPoint" && finalHomeScore > finalAwayScore) currentOddWon = true;
+                else if (pickKey === "drawPoint" && finalHomeScore === finalAwayScore) currentOddWon = true;
+                else if (pickKey === "awayTeamWinPoint" && finalHomeScore < finalAwayScore) currentOddWon = true;
+              } else if (marketType === "doubleChance") {
+                if (pickKey === "1x" && (finalHomeScore > finalAwayScore || finalHomeScore === finalAwayScore)) currentOddWon = true;
+                else if (pickKey === "12" && (finalHomeScore > finalAwayScore || finalHomeScore < finalAwayScore)) currentOddWon = true;
+                else if (pickKey === "x2" && (finalHomeScore === finalAwayScore || finalHomeScore < finalAwayScore)) currentOddWon = true;
+              } else if (marketType === "overUnder") {
+                const totalGoals = finalHomeScore + finalAwayScore;
+                // Assumes pickKey is like "over2_5" or "under2_5"
+                const parts = pickKey.match(/^(over|under)([0-9]+(?:_[0-9]+)?)$/i);
+                if (parts && parts.length === 3) {
+                  const limit = parseFloat(parts[2].replace("_", "."));
+                  if (!isNaN(limit)) {
+                    if (parts[1].toLowerCase() === "over" && totalGoals > limit) currentOddWon = true;
+                    else if (parts[1].toLowerCase() === "under" && totalGoals < limit) currentOddWon = true;
+                  }
+                }
+              } else if (marketType === "ggNg") {
+                if (pickKey === "gg" && finalHomeScore > 0 && finalAwayScore > 0) currentOddWon = true;
+                else if (pickKey === "ng" && (finalHomeScore === 0 || finalAwayScore === 0)) currentOddWon = true;
+              }
+              // Break from inner loops once the selected pick is found and evaluated
+              break; 
+            }
+          }
+          if (currentOddWon || (Object.values(marketPicks).some(v => typeof v === 'number' && v > 0))) break; // Found and evaluated the market
+        }
+
+        if (!currentOddWon) {
+          allOddsInSlipWon = false; // If any odd in the accumulator loses, the whole slip loses
+          break; // No need to check other odds in this slip
+        }
+      } // End of loop for odds within a betslip
+
+      // If after checking all odds, allOddsInSlipWon is still true (and it wasn't skipped)
+      if (allOddsInSlipWon && betSlip.oddIds.every(o => o.eventId.toString() === eventId.toString())) { // Ensure we are only settling if all odds were from this event
+        betSlip.betSlipStatus = "won";
+
+        // Payout is already calculated and stored in betSlip.potentialPayout
+        await User.findByIdAndUpdate(betSlip.userId, { $inc: { walletBalance: betSlip.potentialPayout } }, { session, new: true });
+        console.log(`BetSlip ${betSlip._id} (User: ${betSlip.userId}) won. Credited ${betSlip.potentialPayout}.`);
+      
+    } else if (betSlip.oddIds.every(o => o.eventId.toString() === eventId.toString())) { // If not all odds won, but all were from this event
+        betSlip.betSlipStatus = "lost";
+        console.log(`BetSlip ${betSlip._id} (User: ${betSlip.userId}) lost.`);
+      }
+      // If the betslip was skipped because it contained odds from other events, its status remains "pending".
+      if (betSlip.betSlipStatus !== "pending") { // Save if status changed
+        await betSlip.save({ session });
+      }
+
+    } catch (settlementError) {
+      console.error(`Error settling bet slip ${betSlip._id} for event ${eventId}:`, settlementError);
+      // Decide how to handle individual bet settlement errors.
+      // You might mark the bet as 'error' or 'void' and continue with others.
+      // Re-throw to abort the main transaction if one bet fails critically
+      throw settlementError; // This will abort the transaction
+    }
+  }
+  console.log(`Bet settlement processing completed for event ${eventId}.`);
+};
+     
+ 
+
 
 
 
@@ -106,5 +291,7 @@ module.exports = {
     generateAccessToken,
     generateRefreshToken,
     sendForgetPasswordEmail,
-    checkWalletBalance
+    checkWalletBalance,
+    extractNumericOddValue,
+    settleBetSlipStatus
 }

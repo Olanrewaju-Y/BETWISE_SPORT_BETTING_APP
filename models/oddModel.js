@@ -14,17 +14,38 @@ const oddSchema = new mongoose.Schema({
         required: true
     },
     eventType: {
-            type: String,
+            type: String
     },
     homeTeam: {
-        type: String,
+        type: String
     },
     awayTeam: {
-        type: String,
+        type: String
     },
-    selectedOdd: { // MOST IMPORTANTLY
+    selectedOdd: {
+        type: { 
+            "1x2": { 
+                homeTeamWinPoint: Number, // or "1"
+                drawPoint: Number,        // or "x"
+                awayTeamWinPoint: Number  // or "2"
+            },
+            doubleChance: { "1x": Number, "12": Number, "x2": Number },
+            overUnder: { "over2_5": Number, "under2_5": Number },
+            ggNg: { "gg": Number, "ng": Number } 
+        },
+        default: () => ({ // Default to an empty object or a pre-filled structure
+            "1x2": { 
+                homeTeamWinPoint: null, 
+                drawPoint: null, 
+                awayTeamWinPoint: null 
+            },
+            doubleChance: { "1x": null, "12": null, "x2": null },
+            overUnder: { "over2_5": null, "under2_5": null },
+            ggNg: { "gg": null, "ng": null }
+        })
+    },
+    totalSelectedOddsValue: {
         type: Number,
-        default: 0,
         required: true
     },
     eventDate: {
@@ -34,7 +55,7 @@ const oddSchema = new mongoose.Schema({
         type: String,
         required: true,
         enum: [ "upcoming", "ongoing", "completed", "cancelled", "suspended", "ended", "expired", "deleted", "processed" ],
-        default: "upcoming" // A more sensible default
+        default: "upcoming" 
     }
 }, 
 
