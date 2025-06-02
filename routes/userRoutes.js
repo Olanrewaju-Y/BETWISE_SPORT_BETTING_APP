@@ -8,7 +8,9 @@ const {
   handleCreateBetSlip,
   handleDeleteAllPlacedOdds,
   handleGetAllBetSlips,
-  handleDeleteUserBetSlips
+  handleDeleteUserBetSlips,
+  handleGetUserWalletTransactions,
+  handleAllPlacedOdds
 } = require("../controllers/server");
 
 const { authenticateToken, validateIsAdmin } = require("../middlewares/server");
@@ -26,6 +28,9 @@ router.get("/event/:id", handleGetEventById);
 // Place Odds
 router.patch("/place-odd/:id", authenticateToken, handlePlaceOdd )
 
+// Gell all placed Odds
+router.get("/all-placed-odds", authenticateToken, handleAllPlacedOdds )
+
 // Delete Placed Odds
 router.delete("/delete-all-placed-Odds", authenticateToken, handleDeleteAllPlacedOdds )
 
@@ -38,7 +43,8 @@ router.get("/user-bet-slips", authenticateToken, handleGetAllBetSlips )
 // Delete All User BetSlips
 router.delete("/delete-user-bet-slips", authenticateToken, handleDeleteUserBetSlips )
 
-
+// Get User Wallet Transactions
+router.get("/user-wallet-transactions", authenticateToken, handleGetUserWalletTransactions )
 
 
 

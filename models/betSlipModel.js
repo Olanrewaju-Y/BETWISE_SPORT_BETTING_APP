@@ -23,7 +23,7 @@ const betSlipSchema = new mongoose.Schema({
         default: 0,
         required: true
     },
-    totalBets: {
+    numberOfSelections: {
         type: Number, 
         default: 0,
         required: true
@@ -40,7 +40,7 @@ const betSlipSchema = new mongoose.Schema({
     // },
     betSlipStatus: {
         type: String,
-        enum: ["won", "lost", "pending", "void", "cancelled"], // Added enum
+        enum: ["won", "lost", "pending", "void", "cancelled", "settled"], // Added enum
         default: "pending"
     }
 }, 

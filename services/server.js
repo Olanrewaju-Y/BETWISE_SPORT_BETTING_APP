@@ -5,7 +5,11 @@ const jwt = require('jsonwebtoken');
 const User = require("../models/userModel");
 const mongoose = require('mongoose');
 const BetSlip = require('../models/betSlipModel'); // Import BetSlip model
-const Odd = require('../models/oddModel');    
+const Odd = require('../models/oddModel');
+const Wallet = require('../models/walletModel'); // Import Wallet model for transaction logging
+
+
+
 
 
 // Generate ACCESS token
@@ -149,8 +153,75 @@ function extractNumericOddValue(selectedOddObject) {
   }
 }
 
-// Helper function to settle bets for a completed event
+// Service function to update user wallet and log the transaction
+const updateUserWalletAndLogTransaction = async ({
+  session,
+  userId,
+  amountChange, // Can be positive (credit) or negative (debit)
+  transactionType,
+  transactionStatus = "completed",
+  description,
+  referenceId = null,
+  metadata = {}
+}) => {
+  if (!session) {
+    throw new Error("A Mongoose session is required for wallet transactions.");
+  }
+  if (!userId) {
+    throw new Error("User ID is required for wallet transaction.");
+  }
+  if (typeof amountChange !== 'number') {
+    throw new Error("Amount change must be a number for wallet transaction.");
+  }
+  if (!transactionType) {
+    throw new Error("Transaction type is required for wallet transaction.");
+  }
 
+  const user = await User.findById(userId).session(session);
+  if (!user) {
+    throw new Error(`User not found with ID: ${userId} for wallet transaction.`);
+  }
+
+  const balanceBefore = user.walletBalance;
+
+  // Apply the change to the user's wallet balance
+  user.walletBalance += amountChange;
+
+  // Ensure wallet balance doesn't go below zero if it's a debit that wasn't pre-checked
+  if (user.walletBalance < 0) {
+      throw new Error(`Insufficient funds. Transaction would result in a negative balance for user ${userId}. Balance before: ${balanceBefore}, Change: ${amountChange}`);
+  }
+
+  await user.save({ session });
+  const balanceAfter = user.walletBalance;
+
+  // Find or create the Wallet document for the user
+  let walletDoc = await Wallet.findOne({ userId: userId }).session(session);
+  if (!walletDoc) {
+    walletDoc = new Wallet({ userId: userId, history: [] });
+  }
+
+  // Create the transaction log entry
+  const transactionLogEntry = {
+    type: transactionType,
+    amount: Math.abs(amountChange), // Amount in log is always positive
+    status: transactionStatus,
+    description: description,
+    balanceBefore: balanceBefore,
+    balanceAfter: balanceAfter,
+    referenceId: referenceId, // e.g., BetSlip._id as string
+    metadata: metadata,       // e.g., { betSlipId: actualObjectId, eventId: ... }
+    transactionDate: new Date()
+  };
+
+  walletDoc.history.push(transactionLogEntry);
+  await walletDoc.save({ session });
+
+  console.log(`Wallet transaction logged for user ${userId}: Type: ${transactionType}, Amount Change: ${amountChange}, New Balance: ${balanceAfter}`);
+  return { user, wallet: walletDoc, transactionLogEntry };
+};
+
+// Helper function to settle bets for a completed event
 const settleBetSlipStatus = async (eventId, finalHomeScore, finalAwayScore, session) => { // session is passed for transactional integrity
   console.log(`Attempting to settle bets for event ID: ${eventId} with score ${finalHomeScore} - ${finalAwayScore}`);
 
@@ -256,10 +327,23 @@ const settleBetSlipStatus = async (eventId, finalHomeScore, finalAwayScore, sess
       if (allOddsInSlipWon && betSlip.oddIds.every(o => o.eventId.toString() === eventId.toString())) { // Ensure we are only settling if all odds were from this event
         betSlip.betSlipStatus = "won";
 
-        // Payout is already calculated and stored in betSlip.potentialPayout
-        await User.findByIdAndUpdate(betSlip.userId, { $inc: { walletBalance: betSlip.potentialPayout } }, { session, new: true });
-        console.log(`BetSlip ${betSlip._id} (User: ${betSlip.userId}) won. Credited ${betSlip.potentialPayout}.`);
-      
+        // Credit user and log transaction
+        await updateUserWalletAndLogTransaction({
+          session,
+          userId: betSlip.userId,
+          amountChange: betSlip.potentialPayout, // Positive for credit
+          transactionType: "bet_win_payout",
+          description: `Winnings from bet slip ${betSlip._id} for event ${eventId}`,
+          referenceId: betSlip._id.toString(),
+          metadata: {
+            betSlipId: betSlip._id,
+            eventId: eventId,
+            payoutAmount: betSlip.potentialPayout,
+            finalScore: `${finalHomeScore}-${finalAwayScore}`
+          }
+        });
+        console.log(`BetSlip ${betSlip._id} (User: ${betSlip.userId}) won. Credited ${betSlip.potentialPayout} and logged transaction.`);
+
     } else if (betSlip.oddIds.every(o => o.eventId.toString() === eventId.toString())) { // If not all odds won, but all were from this event
         betSlip.betSlipStatus = "lost";
         console.log(`BetSlip ${betSlip._id} (User: ${betSlip.userId}) lost.`);
@@ -270,7 +354,7 @@ const settleBetSlipStatus = async (eventId, finalHomeScore, finalAwayScore, sess
       }
 
     } catch (settlementError) {
-      console.error(`Error settling bet slip ${betSlip._id} for event ${eventId}:`, settlementError);
+      console.error(`Error during financial transaction or status update for bet slip ${betSlip._id} for event ${eventId}:`, settlementError);
       // Decide how to handle individual bet settlement errors.
       // You might mark the bet as 'error' or 'void' and continue with others.
       // Re-throw to abort the main transaction if one bet fails critically
@@ -287,11 +371,17 @@ const settleBetSlipStatus = async (eventId, finalHomeScore, finalAwayScore, sess
 
 
 
+
+
+
+
+
 module.exports = {
     generateAccessToken,
     generateRefreshToken,
     sendForgetPasswordEmail,
     checkWalletBalance,
     extractNumericOddValue,
-    settleBetSlipStatus
+    settleBetSlipStatus,
+    updateUserWalletAndLogTransaction 
 }

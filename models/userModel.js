@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema({
     interests: {
         type: [String], // Assuming multiple interests can be selected
        // enum: [ "football", "cricket", "basket ball", "tennis" ],
-        default: [""] // Correct default for an array type
+        default: [] // Correct default for an empty array
         // If only one interest is allowed: type: String, default: "" or one of the enum values
     }
 }, 

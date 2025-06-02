@@ -63,7 +63,7 @@ const validateEmailFormat = (req, res, next) => {
  
   if (!passwordFormat.test(password)) {
     res.status(400).json({
-      message: "Invalid password format",
+      message: "Invalid password format, Password must be at least 8 characters and contain at least one uppercase letter, one lowercase letter, one number, and one special character.",
     });
 
     return console.log("Invalid password format request was recieved");

@@ -6,7 +6,9 @@ const {
   handleDeleteAllUser, 
   handleGetAllUsers,
   handleDeleteAllEvents,
-  handleUpdateGameOutcome, 
+  handleUpdateGameOutcome,
+  handleCreditUserWallet,
+  handleSettleAllUsersFromBetSlipWins, 
   
 } = require("../controllers/server");
 
@@ -30,6 +32,16 @@ router.delete("/delete-all-events", authenticateToken, validateIsAdmin, handleDe
 
 // Update Game Outcome
 router.put("/update-game-outcome/:id", authenticateToken, validateIsAdmin, handleUpdateGameOutcome)
+
+// Credit user wallet -MANUALLY
+router.post("/credit-user-wallet", authenticateToken, validateIsAdmin, handleCreditUserWallet )
+
+// Settle All Users From Bet Slip Wins
+router.post("/settle-all-users-from-bet-slip-wins", authenticateToken, validateIsAdmin, handleSettleAllUsersFromBetSlipWins )
+
+
+
+
 
 
 
