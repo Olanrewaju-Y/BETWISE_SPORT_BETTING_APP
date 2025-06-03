@@ -1,5 +1,5 @@
 {
-  "name": "creating_a_betwise-project_sport_betting_platform_mycex_milestone2",
+  "name": "betwise_sport_betting_app.git",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "dev": "nodemon server.js"
   },
   "repository": {
-    "url": "https://github.com/Olanrewaju-Y/CREATING_A_BETWISE-PROJECT_SPORT_BETTING_PLATFORM_myCEx_MILESTONE2/.git"
+    "url": "https://github.com/Olanrewaju-Y/BETWISE_SPORT_BETTING_APP.git"
   },
   "dependencies": {
     "axios": "^1.9.0",
