@@ -7,7 +7,7 @@ const {
   handleUserLogin,
   handleForgetPassword,
   handleResetPassword
-} = require("../controllers/server");
+} = require("../controllers/authController");
 
 // Import necessary middlewares
 const {

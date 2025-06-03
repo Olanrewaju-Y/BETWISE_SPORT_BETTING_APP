@@ -11,8 +11,9 @@ const transactionSchema = new mongoose.Schema({
       "bet_win_payout",   // Winnings credited from a bet
       "bet_refund",       // Bet stake returned (e.g., void event)
       "admin_credit",     // Manual credit by admin
-      "admin_debit",      // Manual debit by admin
-      "bonus_credit"      // Bonus funds added
+      "admin_debit",      // Manual debit by admin      
+      "bonus_credit",     // Bonus funds added
+      "wallet_top_up_bank_transfer" // For direct bank transfers via webhook
     ]
   },
   amount: { // Always positive. The 'type' of transaction determines its effect on balance.

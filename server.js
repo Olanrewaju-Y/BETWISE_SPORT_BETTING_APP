@@ -8,6 +8,8 @@ dotenv.config();
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+
 
 
 // middle ware / body parser
@@ -33,9 +35,16 @@ mongoose
   });
 
 
+// TEST / WELCOME PAGE 
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "Welcome To BetWise!" })
+})
 
-// Mount the authentication routes
+
+
+  // Mount the authentication routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/event", eventRoutes);
+app.use("/api/payment", paymentRoutes);
 

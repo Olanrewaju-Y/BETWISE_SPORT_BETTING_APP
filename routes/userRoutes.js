@@ -11,7 +11,7 @@ const {
   handleDeleteUserBetSlips,
   handleGetUserWalletTransactions,
   handleAllPlacedOdds
-} = require("../controllers/server");
+} = require("../controllers/userController");
 
 const { authenticateToken, validateIsAdmin } = require("../middlewares/server");
 
@@ -48,11 +48,6 @@ router.get("/user-wallet-transactions", authenticateToken, handleGetUserWalletTr
 
 
 
-
-
-
-
-module.exports = router
 
 
 

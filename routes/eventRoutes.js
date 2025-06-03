@@ -10,7 +10,7 @@ const {
   handleCreditUserWallet,
   handleSettleAllUsersFromBetSlipWins, 
   
-} = require("../controllers/server");
+} = require("../controllers/eventController");
 
 const { authenticateToken, validateIsAdmin } = require("../middlewares/server");
 
