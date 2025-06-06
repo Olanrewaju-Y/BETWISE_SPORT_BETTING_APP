@@ -3,16 +3,19 @@ const router = express.Router();
 
 // Import necessary controllers
 const {
+handlePaymentHistory,
 handleCreditWalletFromBank,
 handlePaymentCallback,
- handleFlutterwaveBankTransferWebhook 
+ handleFlutterwaveBankTransferWebhook,
+ handleCreditUserWallet
 } = require("../controllers/paymentController");
 
 // Import necessary middlewares
 const {
   authenticateToken,
   validateRegister,
-  validateEmailFormat
+  validateEmailFormat,
+  validateIsAdmin
 } = require("../middlewares/server");
 
 
@@ -20,13 +23,29 @@ const {
 // PAYMENTS
 
 // credit-wallet-from-bank
-router.post("/credit-wallet-from-bank", handleCreditWalletFromBank);
+router.post("/credit-wallet-from-bank", authenticateToken, handleCreditWalletFromBank );
 
 // payment-callback
-router.get("/payment-callback", handlePaymentCallback);
+router.get("/payment-callback", handlePaymentCallback );
 
 // Webhook endpoint for Flutterwave to notify about bank transfer payments
-router.post("/flutterwave-bank-webhook", handleFlutterwaveBankTransferWebhook);
+router.post("/flutterwave-bank-webhook", handleFlutterwaveBankTransferWebhook );
+
+// Credit user wallet - MANUALLY
+router.post("/credit-user-wallet", authenticateToken, validateIsAdmin, handleCreditUserWallet )
+
+// Wallet and Payment History
+router.get("/wallet-and-payment-history", authenticateToken, handlePaymentHistory );
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -9,7 +9,6 @@ const {
   handleDeleteAllPlacedOdds,
   handleGetAllBetSlips,
   handleDeleteUserBetSlips,
-  handleGetUserWalletTransactions,
   handleAllPlacedOdds
 } = require("../controllers/userController");
 
@@ -42,9 +41,6 @@ router.get("/user-bet-slips", authenticateToken, handleGetAllBetSlips )
 
 // Delete All User BetSlips
 router.delete("/delete-user-bet-slips", authenticateToken, handleDeleteUserBetSlips )
-
-// Get User Wallet Transactions
-router.get("/user-wallet-transactions", authenticateToken, handleGetUserWalletTransactions )
 
 
 

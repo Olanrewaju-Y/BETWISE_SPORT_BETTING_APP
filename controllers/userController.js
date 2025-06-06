@@ -375,51 +375,7 @@ const handleDeleteUserBetSlips = async (req, res) => {
   }
 };
 
-// Get user wallet transactions
-const handleGetUserWalletTransactions = async (req, res) => {
-  const userId = req.user.id;
 
-  const { limit, skip } = req.query; // Get pagination parameters from query string
-
-  try {
-    // Find the single wallet document for the user
-    const wallet = await Wallet.findOne({ userId: userId });
-
-    if (!wallet) {
-      // User exists but has no wallet document yet (e.g., new user)
-      return res.status(200).json({
-        message: "No wallet transactions found for this user.",
-        transactions: [],
-        totalCount: 0,
-      });
-    }
-    // Sort the history array by transactionDate (descending)
-    const sortedHistory = wallet.history.sort(
-      (a, b) => b.transactionDate - a.transactionDate
-    );
-
-    // Apply pagination
-    const parsedSkip = parseInt(skip, 10) || 0;
-    const parsedLimit = parseInt(limit, 10) || sortedHistory.length; // Default to all if no limit
-
-    const paginatedTransactions = sortedHistory.slice(
-      parsedSkip,
-      parsedSkip + parsedLimit
-    );
-
-    res.status(200).json({
-      message: "Wallet transactions fetched successfully.",
-      transactions: paginatedTransactions,
-      totalCount: wallet.history.length, // Total count before pagination
-    });
-  } catch (error) {
-    console.error("Error in handleGetUserWalletTransactions:", error);
-    res.status(500).json({
-      message: "Error fetching wallet transactions.",
-      error: error.message,
-    });
-  }
-};
 
 
 
@@ -434,6 +390,5 @@ module.exports = {
   handleDeleteAllPlacedOdds,
   handleCreateBetSlip,
   handleGetAllBetSlips,
-  handleDeleteUserBetSlips,
-  handleGetUserWalletTransactions
+  handleDeleteUserBetSlips
 };

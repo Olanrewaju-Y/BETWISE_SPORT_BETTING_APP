@@ -18,6 +18,7 @@ app.use(express.json());
 // setting up PORT
 const PORT = process.env.PORT || 8000;
 
+// Setting up Mongoose for MongoDB
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
@@ -35,14 +36,13 @@ mongoose
   });
 
 
-// TEST / WELCOME PAGE 
-app.get("/", (req, res) => {
-  res.status(200).json({ message: "Welcome To BetWise!" })
-})
+// APIs
+
+// Test/Welcome Page 
+app.get("/", (req, res) => { res.status(200).json({ message: "Welcome To BetWise!" }) })
 
 
-
-  // Mount the authentication routes
+// Mount the authentication routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/event", eventRoutes);

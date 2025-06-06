@@ -13,7 +13,8 @@ const transactionSchema = new mongoose.Schema({
       "admin_credit",     // Manual credit by admin
       "admin_debit",      // Manual debit by admin      
       "bonus_credit",     // Bonus funds added
-      "wallet_top_up_bank_transfer" // For direct bank transfers via webhook
+      "wallet_top_up_bank_transfer",
+      "wallet_top_up" // For direct bank transfers via webhook
     ]
   },
   amount: { // Always positive. The 'type' of transaction determines its effect on balance.

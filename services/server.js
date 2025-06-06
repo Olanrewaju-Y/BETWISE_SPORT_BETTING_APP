@@ -17,7 +17,7 @@ const generateAccessToken = ( user ) => {
 const accessToken = jwt.sign(
         { id: user._id }, 
         process.env.ACCESS_TOKEN,
-        { expiresIn: "30m" }
+        { expiresIn: "15m" }
       )
       return accessToken;
 }
@@ -32,6 +32,11 @@ const refreshToken = jwt.sign(
 
 return refreshToken;
 }
+
+// Access and Refresh Secrets
+const ACCESS_SECRET = process.env.REFRESH_TOKEN || "accessSecret"
+const REFRESH_SECRET = process.env.REFRESH_TOKEN || "refreshSecret"
+
 
 // send Forget Password Email
 const sendForgetPasswordEmail = async (user, token) => { 
@@ -379,6 +384,8 @@ const settleBetSlipStatus = async (eventId, finalHomeScore, finalAwayScore, sess
 module.exports = {
     generateAccessToken,
     generateRefreshToken,
+    ACCESS_SECRET,
+    REFRESH_SECRET,
     sendForgetPasswordEmail,
     checkWalletBalance,
     extractNumericOddValue,

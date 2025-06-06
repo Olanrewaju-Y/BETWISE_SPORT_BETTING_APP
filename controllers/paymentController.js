@@ -34,11 +34,156 @@ const FLW_SECRET_HASH = process.env.FLW_SECRET_HASH; // Ensure you have this in 
 
 // PAYMENTS
 
+// Wallet and Payment History
+const handlePaymentHistory = async (req, res) => {
+  const userId = req.user.id;
+  const {
+    limit,
+    skip,
+    sortBy = "transactionDate",
+    sortOrder = "desc",
+    transactionType, // New filter: e.g., 'wallet_top_up', 'bet_placement'
+    status,         // New filter: e.g., 'successful', 'pending', 'failed' (if applicable to wallet history entries)
+    startDate,      // New filter: e.g., '2023-01-01'
+    endDate,        // New filter: e.g., '2023-01-31'
+  } = req.query;
+
+  try {
+    // Find the single wallet document for the user
+    const wallet = await Wallet.findOne({ userId: userId });
+
+    if (!wallet || !wallet.history || wallet.history.length === 0) {
+      return res.status(200).json({
+        message: "No payment history found for this user.",
+        transactions: [],
+        totalCount: 0,
+        currentPage: 1,
+        totalPages: 0,
+      });
+    }
+
+    // Apply filters
+    let filteredHistory = [...wallet.history]; // Start with a copy of all history
+
+    if (transactionType) {
+      filteredHistory = filteredHistory.filter(
+        (t) => t.transactionType === transactionType
+      );
+    }
+
+    if (status) {
+      // Note: 'status' might not be present on all transaction history entries.
+      // Adjust this if your schema has a consistent status field.
+      filteredHistory = filteredHistory.filter((t) => t.status === status);
+    }
+
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0); // Set to beginning of the day
+      filteredHistory = filteredHistory.filter((t) => new Date(t.transactionDate) >= start);
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Set to end of the day
+      filteredHistory = filteredHistory.filter((t) => new Date(t.transactionDate) <= end);
+    }
+
+    let sortedHistory = filteredHistory; // Sort the filtered results
+    sortedHistory.sort((a, b) => {
+      const valA = a[sortBy] || 0; // Fallback for missing sort field
+      const valB = b[sortBy] || 0;
+      if (sortOrder === "asc") {
+        return valA < valB ? -1 : valA > valB ? 1 : 0;
+      } else { // desc
+        return valA > valB ? -1 : valA < valB ? 1 : 0;
+      }
+    });
+
+    // Apply pagination
+    const parsedSkip = parseInt(skip, 10) || 0;
+    const parsedLimit = parseInt(limit, 10) || 10; // Default limit to 10 if not provided
+
+    const paginatedTransactions = sortedHistory.slice(
+      parsedSkip,
+      parsedSkip + parsedLimit
+    );
+    const totalCount = filteredHistory.length; // Total count of filtered items
+
+    res.status(200).json({
+      message: "Payment history fetched successfully.",
+      transactions: paginatedTransactions,
+      totalCount: totalCount,
+      currentPage: totalCount > 0 ? Math.floor(parsedSkip / parsedLimit) + 1 : 1,
+      totalPages: Math.ceil(totalCount / parsedLimit),
+    });
+  } catch (error) {
+    console.error("Error fetching payment history:", error);
+    res.status(500).json({ message: "Error fetching payment history.", error: error.message });
+  }
+}
+
+// Credit User Wallet
+const handleCreditUserWallet = async (req, res) => {
+  const { targetUserId, amount, description } = req.body; // Admin specifies whose wallet, how much, and why
+  const adminUserId = req.user.id; // The admin performing the action
+
+  if (!targetUserId || typeof amount !== "number" || amount <= 0) {
+    return res
+      .status(400)
+      .json({ message: "Target User ID and a positive amount are required." });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const targetUser = await User.findById(targetUserId).session(session); // Ensure user exists
+    if (!targetUser) {
+      await session.abortTransaction();
+      // session.endSession(); // Rely on finally block
+      return res.status(404).json({ message: "Target user not found." });
+    }
+
+    const { user: updatedUser, transactionLogEntry } =
+      await updateUserWalletAndLogTransaction({
+        session,
+        userId: targetUserId,
+        amountChange: amount, // Positive for credit
+        transactionType: "admin_credit",
+        description: description || `Manual credit by admin ${adminUserId}`,
+        referenceId: null, // Or an admin action ID if you track those
+        metadata: {
+          adminUserId: adminUserId,
+          reason: description || "Manual credit by administrator",
+        },
+      });
+
+    await session.commitTransaction();
+    res.status(200).json({
+      message: `User ${updatedUser.userName}'s wallet credited successfully.`,
+      newBalance: updatedUser.walletBalance,
+      transaction: transactionLogEntry,
+    });
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    console.error("Error in handleCreditUserWallet:", error);
+    res
+      .status(500)
+      .json({ message: "Error crediting user wallet.", error: error.message });
+  } finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+};
+
 // Credit wallet from Bank
 const handleCreditWalletFromBank = async (req, res) => {
-  const userId = req.user.id; // Assuming route is authenticated and req.user is populated
-  // const { amount, email, phone, name } = req.body; // Old way
-  const { amount } = req.body; // Only take amount from body
+  const userId = req.user.id; 
+  const { amount } = req.body; 
 
   // 1. Validate input
   if (typeof amount !== "number" || isNaN(amount) || amount <= 0) {
@@ -80,8 +225,8 @@ const handleCreditWalletFromBank = async (req, res) => {
     const paymentPayload = {
       tx_ref: tx_ref,
       amount: amount, // Use validated amount from request
-      currency: DEFAULT_PAYMENT_CURRENCY, // Use configured currency
-      redirect_url: `${CLIENT_APP_URL}/payment-callback`, // Ensure CLIENT_APP_URL is correctly set
+      currency: DEFAULT_PAYMENT_CURRENCY, 
+      redirect_url: `${CLIENT_APP_URL}/api/payment/payment-callback`, // Ensure CLIENT_APP_URL is correctly set
       payment_options: "card", // This could also be configurable
       customer: {
         email: customerEmail,
@@ -163,6 +308,7 @@ const handlePaymentCallback = async (req, res) => {
     status: clientStatus,
   } = req.query;
 
+  console.log(`[Callback] Received callback for transaction_id: ${transactionId}, tx_ref: ${clientTxRef}, status: ${clientStatus}`);
   if (!transactionId) {
     console.warn("Payment callback received without transaction_id.");
     return res.redirect(
@@ -191,7 +337,14 @@ const handlePaymentCallback = async (req, res) => {
   }
 
   let session;
+
   try {
+    console.log(`[Callback] Starting Mongoose session and transaction for TxID: ${transactionId}`);
+
+   session = await mongoose.startSession();
+       session.startTransaction();
+
+
     // 1. Verify the transaction with Flutterwave
     const verifyResponse = await axios.get(
       `${FLUTTERWAVE_VERIFY_TRANSACTION_URL_BASE}/${transactionId}/verify`,
@@ -201,6 +354,7 @@ const handlePaymentCallback = async (req, res) => {
         },
       }
     );
+    console.log(`[Callback] Flutterwave verification response status: ${verifyResponse.data.status} for TxID: ${transactionId}`);
 
     if (
       !verifyResponse.data ||
@@ -224,6 +378,7 @@ const handlePaymentCallback = async (req, res) => {
       id: verifiedTransactionId,
     } = verifyResponse.data.data;
 
+    console.log(`[Callback] Verified data - Status: ${status}, Amount: ${verifiedAmount}, Currency: ${verifiedCurrency}, TxRef: ${verifiedTxRef}, TxID: ${verifiedTransactionId}`);
     // 2. Security Check: Compare clientTxRef with verifiedTxRef
     if (clientTxRef !== verifiedTxRef) {
       console.error(
@@ -254,18 +409,26 @@ const handlePaymentCallback = async (req, res) => {
       );
     }
 
-    // 4. Idempotency Check: See if this transaction has already been processed
-    const existingWallet = await Wallet.findOne({ userId: userIdToCredit });
+   // 5. Fetch the user's wallet *within the session* (or create it) and perform Idempotency Check
+    // Use findOneAndUpdate with upsert:true to create the wallet if it doesn't exist yet
+    console.log(`[Callback] Attempting to find/create wallet for user ${userIdToCredit} within session for TxID: ${transactionId}`);
+    const existingWallet = await Wallet.findOneAndUpdate(
+        { userId: userIdToCredit },
+        { $setOnInsert: { userId: userIdToCredit, history: [] } }, // Create if not exists
+        { upsert: true, new: true, session: session } // Important: use session and return new doc
+    );
+    console.log(`[Callback] Wallet found/created for user ${userIdToCredit}. Wallet ID: ${existingWallet._id} for TxID: ${transactionId}`);
+   
     if (existingWallet) {
       const existingTransaction = existingWallet.history.find(
         (entry) =>
-          entry.referenceId === transactionId.toString() &&
-          entry.transactionType === "wallet_top_up"
+         entry.referenceId === transactionId.toString() && // Check against Flutterwave TxID
+          entry.transactionType === "wallet_top_up" // Check against the transaction type used for this flow
       );
       if (existingTransaction) {
-        console.log(
-          `Duplicate callback for already processed transaction: ${transactionId} for user ${userIdToCredit}. Current status: ${
-            existingTransaction.status || "processed"
+        console.warn( // Changed to warn as this indicates a potential issue/retry
+          `Duplicate callback for already processed transaction: ${transactionId} for user ${userIdToCredit}. Status: ${
+          existingTransaction.status || "processed"
           }`
         );
         // Redirect based on the original outcome if possible, or just to a generic success/info page.
@@ -273,12 +436,9 @@ const handlePaymentCallback = async (req, res) => {
         return res.redirect(
           `${CLIENT_APP_URL}/payment-success?status=already_processed&tx_ref=${verifiedTxRef}`
         );
+        // Note: The session is implicitly ended by the redirect and return.
       }
     }
-
-    // 5. Start Mongoose session for atomic operation
-    session = await mongoose.startSession();
-    session.startTransaction();
 
     // 6. Validate payment status and details from verification
     if (
@@ -286,8 +446,9 @@ const handlePaymentCallback = async (req, res) => {
       verifiedCurrency === DEFAULT_PAYMENT_CURRENCY && // Use verified currency
       verifiedAmount >= MIN_TOPUP_AMOUNT // Use verified amount from Flutterwave
     ) {
+      console.log(`[Callback] Payment criteria met. Crediting wallet for user ${userIdToCredit}, amount ${verifiedAmount} for TxID: ${transactionId}`);
       // 7. Credit user's wallet and log transaction
-      const { user: updatedUser, transactionLogEntry } =
+      const { user: updatedUser, transactionLogEntry } = // updateUserWalletAndLogTransaction should use the session
         await updateUserWalletAndLogTransaction({
           session, // Pass the initialized session
           userId: userIdToCredit, // Use the correct userId
@@ -304,6 +465,8 @@ const handlePaymentCallback = async (req, res) => {
           },
         });
 
+      console.log(`[Callback] Wallet update and log successful for user ${userIdToCredit}. Committing transaction for TxID: ${transactionId}`);
+          // 8. Commit the transaction
       await session.commitTransaction();
       res.redirect(
         `${CLIENT_APP_URL}/payment-success?status=success&tx_ref=${verifiedTxRef}`
@@ -313,6 +476,8 @@ const handlePaymentCallback = async (req, res) => {
       );
     } else {
       // Payment failed at Flutterwave or did not meet criteria
+      // 8. Abort the transaction
+      console.warn(`[Callback] Payment criteria NOT met. Aborting transaction for user ${userIdToCredit}, TxID: ${transactionId}. Status: ${status}`);
       await session.abortTransaction();
       console.warn(
         `Wallet top-up failed for user ${userIdToCredit}. Flutterwave Status: ${status}, Amount: ${verifiedAmount}, Currency: ${verifiedCurrency}, TxRef: ${verifiedTxRef}. TxID: ${transactionId}`
@@ -324,7 +489,9 @@ const handlePaymentCallback = async (req, res) => {
       );
     }
   } catch (error) {
+     // Ensure session is aborted if an error occurs before commit/abort   
     if (session && session.inTransaction()) {
+      console.error(`[Callback] Caught error, attempting to abort transaction for TxID: ${transactionId}`);
       try {
         await session.abortTransaction();
       } catch (abortError) {
@@ -334,6 +501,7 @@ const handlePaymentCallback = async (req, res) => {
         );
       }
     }
+    console.error(`[Callback] Critical error processing callback for TxID: ${transactionId || clientTxRef || 'unknown'}:`, error);
     console.error("Critical error in handlePaymentCallback:", error.message);
     if (error.response) {
       // Axios error
@@ -346,7 +514,9 @@ const handlePaymentCallback = async (req, res) => {
       }&transaction_id=${transactionId || "unknown"}`
     );
   } finally {
+     // Ensure session is always ended
     if (session) {
+      console.log(`[Callback] Ending session for TxID: ${transactionId || clientTxRef || 'unknown'}`);
       try {
         await session.endSession();
       } catch (endSessionError) {
@@ -530,6 +700,8 @@ const handleFlutterwaveBankTransferWebhook = async (req, res) => {
 
 
 module.exports = {
+  handleCreditUserWallet,
+  handlePaymentHistory,
   handleCreditWalletFromBank,
   handlePaymentCallback,
   handleFlutterwaveBankTransferWebhook

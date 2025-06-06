@@ -6,6 +6,7 @@ const {
   sendForgetPasswordEmail,
   generateAccessToken,
   generateRefreshToken,
+  REFRESH_SECRET
 } = require("../services/server");
 const { MIN_BET_AMOUNT, MIN_TOPUP_AMOUNT } = require("../config/server");
 
@@ -37,9 +38,9 @@ const handleUserSignUp = async (req, res) => {
       console.log("Registration failed: User < 18");
       return;
     }
-    const existingUser = await User.findOne({ userName: userName });
+    const user = await User.findOne({ userName: userName });
 
-    if (existingUser) {
+    if (user) {
       res.status(400).json({
         message: "UserName already exists, try login",
       });
@@ -88,9 +89,9 @@ const handleUserSignUp = async (req, res) => {
 const handleUserLogin = async (req, res) => {
   const { userName, password } = req.body;
   try {
-    const existingUser = await User.findOne({ userName });
+    const user = await User.findOne({ userName });
 
-    if (!existingUser) {
+    if (!user) {
       res.status(400).json({
         message: "Incorrect username or password",
       });
@@ -102,7 +103,7 @@ const handleUserLogin = async (req, res) => {
     // decoding the password
     const passwordMatch = await bcrypt.compare(
       password,
-      existingUser?.password
+      user?.password
     );
     if (!passwordMatch) {
       res.status(400).json({
@@ -115,33 +116,79 @@ const handleUserLogin = async (req, res) => {
     }
 
     // Generate tokens using service functions
-    const accessToken = generateAccessToken(existingUser);
-    const refreshToken = generateRefreshToken(existingUser);
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    user.refreshToken = refreshToken
+    await user.save()
+
+    res.cookie("jwt", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      maxAge:  30 * 24 * 60 * 60 * 1000, // 30days
+    }).json({ accessToken })
 
     res.status(200).json({
       message: "User logged in successfully",
       user: {
-        userName: existingUser?.userName,
-        age: existingUser?.age,
-        walletBalance: existingUser?.walletBalance,
-        nickName: existingUser?.nickName,
-        role: existingUser?.role,
-        gender: existingUser?.gender,
-        country: existingUser?.country,
-        interests: existingUser?.interests,
-        userId: existingUser?._id,
-        createdAt: existingUser?.createdAt,
-        updatedAt: existingUser?.updatedAt,
+        userName: user?.userName,
+        age: user?.age,
+        walletBalance: user?.walletBalance,
+        nickName: user?.nickName,
+        role: user?.role,
+        gender: user?.gender,
+        country: user?.country,
+        interests: user?.interests,
+        userId: user?._id,
+        createdAt: user?.createdAt,
+        updatedAt: user?.updatedAt,
       },
       accessToken,
       refreshToken, // Send refresh token to the client if needed
     });
-    console.log("User logged in successfully:", existingUser.userName);
+    console.log("User logged in successfully:", user.userName);
   } catch (error) {
     console.error("Error in handleUserLogin:", error);
     res.status(500).json({ message: error.message });
   }
 };
+
+const handleRefresh = async (req, res) => {
+  const token = req.cookies.jwt
+  if(!token) return res.sendStatus(401)
+  
+    try{
+      const payload = jwt.verify(token, REFRESH_SECRET)
+      const user = await User.findById( payload.id )
+
+      if( !user || user.refreshToken !== token ) {
+        return sendStatus(403)
+      }
+      
+      const newAccessToken = generateAccessToken( user )
+      res.status(200).json({ accessToken: newAccessToken })
+    } catch(err) {
+      return res.sendStatus(403);
+    }
+  }
+
+const handleLogOut = async (req, res) => {
+  const token = req.cookies.jwt
+  if(!token) return res.sendStatus(204)
+
+    const user = await User.findOne({ refreshToken: token })
+    if (user) {
+      user.refreshToken = null
+      await user.save()
+    }
+   res.cookie("jwt", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict"
+    })
+   res.sendStatus(204)
+}
 
 const handleForgetPassword = async (req, res) => {
   const { userName } = req.body;
@@ -205,9 +252,13 @@ const handleResetPassword = async (req, res) => {
 
 
 
+
+
 module.exports = {
   handleUserSignUp,
   handleUserLogin,
   handleForgetPassword,
-  handleResetPassword
+  handleResetPassword,
+  handleRefresh,
+  handleLogOut
 };

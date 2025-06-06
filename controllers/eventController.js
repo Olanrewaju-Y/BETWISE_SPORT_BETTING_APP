@@ -239,63 +239,6 @@ const handleUpdateGameOutcome = async (req, res) => {
   }
 };
 
-// Credit User Wallet
-const handleCreditUserWallet = async (req, res) => {
-  const { targetUserId, amount, description } = req.body; // Admin specifies whose wallet, how much, and why
-  const adminUserId = req.user.id; // The admin performing the action
-
-  if (!targetUserId || typeof amount !== "number" || amount <= 0) {
-    return res
-      .status(400)
-      .json({ message: "Target User ID and a positive amount are required." });
-  }
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const targetUser = await User.findById(targetUserId).session(session); // Ensure user exists
-    if (!targetUser) {
-      await session.abortTransaction();
-      // session.endSession(); // Rely on finally block
-      return res.status(404).json({ message: "Target user not found." });
-    }
-
-    const { user: updatedUser, transactionLogEntry } =
-      await updateUserWalletAndLogTransaction({
-        session,
-        userId: targetUserId,
-        amountChange: amount, // Positive for credit
-        transactionType: "admin_credit",
-        description: description || `Manual credit by admin ${adminUserId}`,
-        referenceId: null, // Or an admin action ID if you track those
-        metadata: {
-          adminUserId: adminUserId,
-          reason: description || "Manual credit by administrator",
-        },
-      });
-
-    await session.commitTransaction();
-    res.status(200).json({
-      message: `User ${updatedUser.userName}'s wallet credited successfully.`,
-      newBalance: updatedUser.walletBalance,
-      transaction: transactionLogEntry,
-    });
-  } catch (error) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    console.error("Error in handleCreditUserWallet:", error);
-    res
-      .status(500)
-      .json({ message: "Error crediting user wallet.", error: error.message });
-  } finally {
-    if (session) {
-      await session.endSession();
-    }
-  }
-};
-
 // Settle All User Wallet from Bet Slip Wins
 const handleSettleAllUsersFromBetSlipWins = async (req, res) => {
   const session = await mongoose.startSession();
@@ -399,6 +342,5 @@ module.exports = {
   handleDeleteAllUser,
   handleDeleteAllEvents,
   handleUpdateGameOutcome,
-  handleCreditUserWallet,
   handleSettleAllUsersFromBetSlipWins
 };
