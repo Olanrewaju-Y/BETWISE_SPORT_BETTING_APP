@@ -21,9 +21,9 @@
     "nodemailer": "^7.0.3"
   },
   "keywords": [],
-  "author": "",
+  "author": "olanrewaju_y",
   "license": "ISC",
-  "description": "",
+  "description": "sport_betting_app_project",
   "devDependencies": {
     "nodemon": "^3.1.10"
   }

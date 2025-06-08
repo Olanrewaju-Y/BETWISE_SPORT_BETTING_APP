@@ -127,10 +127,7 @@ const handleUserLogin = async (req, res) => {
       secure: true,
       sameSite: "Strict",
       maxAge:  30 * 24 * 60 * 60 * 1000, // 30days
-    }).json({ accessToken })
-
-    res.status(200).json({
-      message: "User logged in successfully",
+    }).json({ message: "User logged in successfully",
       user: {
         userName: user?.userName,
         age: user?.age,
@@ -145,8 +142,8 @@ const handleUserLogin = async (req, res) => {
         updatedAt: user?.updatedAt,
       },
       accessToken,
-      refreshToken, // Send refresh token to the client if needed
-    });
+      refreshToken,
+      })    
     console.log("User logged in successfully:", user.userName);
   } catch (error) {
     console.error("Error in handleUserLogin:", error);
