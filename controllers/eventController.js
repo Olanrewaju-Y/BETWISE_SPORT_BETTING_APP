@@ -1,4 +1,5 @@
 const User = require("../models/userModel");
+const BetSlip = require("../models/betSlipModel");
 const dotenv = require("dotenv");
 dotenv.config();
 const Event = require("../models/eventModel");
