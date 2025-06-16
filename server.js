@@ -1,19 +1,31 @@
 // Importing all dependencies
 const express = require("express");
 const app = express();
-const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 dotenv.config();
+const cors = require("cors");
+const mongoose = require("mongoose");
+
 // Import your new router
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const aiRoutes = require("./routes/aiRoutes")
+
+
 
 
 
 // middle ware / body parser
 app.use(express.json());
+
+// CORS
+app.use(cors({
+  origin: process.env.FRONTEND_APP_URL,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 
 // setting up PORT
 const PORT = process.env.PORT || 8000;
@@ -47,4 +59,15 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/event", eventRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/ai", aiRoutes);
 
+// Global error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack); // Log the error stack trace for debugging
+  res.status(500).send({ error: 'Something went wrong!' });
+});
+
+//Consider adding 404 handler
+app.use((req, res, next) => {
+  res.status(404).send({ error: 'Not Found' });
+});
