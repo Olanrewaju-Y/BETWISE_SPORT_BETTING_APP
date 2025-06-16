@@ -1,6 +1,7 @@
 // Importing all dependencies
 const express = require("express");
 const app = express();
+const cors = require("cors");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 dotenv.config();
@@ -14,6 +15,9 @@ const paymentRoutes = require("./routes/paymentRoutes");
 
 // middle ware / body parser
 app.use(express.json());
+
+// Cors
+app.use(cors());
 
 // setting up PORT
 const PORT = process.env.PORT || 8000;
