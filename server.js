@@ -1,6 +1,11 @@
 // Importing all dependencies
 const express = require("express");
 const app = express();
+<<<<<<< HEAD
+=======
+const cors = require("cors");
+const mongoose = require("mongoose");
+>>>>>>> 6574718c0d1b65e77e45195f417cc168456dbfb1
 const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
@@ -20,12 +25,17 @@ const aiRoutes = require("./routes/aiRoutes")
 // middle ware / body parser
 app.use(express.json());
 
+<<<<<<< HEAD
 // CORS
 app.use(cors({
   origin: process.env.FRONTEND_APP_URL,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
+=======
+// Cors
+app.use(cors());
+>>>>>>> 6574718c0d1b65e77e45195f417cc168456dbfb1
 
 // setting up PORT
 const PORT = process.env.PORT || 8000;
