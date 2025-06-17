@@ -1,28 +1,28 @@
 // Importing all dependencies
 const express = require("express");
-const app = express();
-const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
 const mongoose = require("mongoose");
+const app = express();
+
 
 // Import your new router
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
-const aiRoutes = require("./routes/aiRoutes")
+// const aiRoutes = require("./routes/aiRoutes")
 
 
 
 
 
-// middle ware / body parser
+// middleware / body parser
 app.use(express.json());
 
 
-// CORS middle ware
+// CORS middleware
 app.use(cors({
   origin: process.env.FRONTEND_APP_URL,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -55,7 +55,7 @@ mongoose
 // APIs
 
 // Test/Welcome Page 
-app.get("/", (req, res) => { res.status(200).json({ message: "Welcome To BetWise!" }) })
+app.get("/", (req, res) => { res.status(200).json({ message: "Welcome To BetWise!" }); })
 
 
 // Mount the authentication routes
@@ -63,7 +63,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/event", eventRoutes);
 app.use("/api/payment", paymentRoutes);
-app.use("/api/ai", aiRoutes);
+// app.use("/api/ai", aiRoutes);
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
