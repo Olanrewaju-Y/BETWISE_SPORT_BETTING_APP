@@ -19,7 +19,7 @@ const { authenticateToken, validateIsAdmin } = require("../middlewares/server");
 // USER ROLES
 
 // Get all Event
-router.get("/all-events", authenticateToken, handleGetAllEvents )
+router.get("/all-events", handleGetAllEvents )
 
 // Get just one Event
 router.get("/event/:id", handleGetEventById);
