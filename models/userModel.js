@@ -2,7 +2,7 @@ const mongoose = require("mongoose")
 const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
-    userName: {
+    email: {
         type: String,
         required: true,
         unique: true
@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema({
     role: {
         type: String,
         required: true,
-        enum: ["user", "admin", "agent" ],
+        enum: ["user", "admin", "agent", "coach", "manager", "player" ],
         default: "user"
     },
     gender: {

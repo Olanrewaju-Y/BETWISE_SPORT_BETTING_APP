@@ -114,7 +114,7 @@ const handlePlaceOdd = async (req, res) => {
       message: "Odd placed successfully, Refer to BetSummary to place Bet.",
       odd: newOdd,
     });
-    console.log(`Odd placed by user ${user.userName} on event ${event._id}`);
+    console.log(`Odd placed by user ${user.email} on event ${event._id}`);
   } catch (error) {
     console.error("Error in handlePlaceOdd:", error);
     res.status(500).json({

@@ -19,7 +19,7 @@ const { MIN_BET_AMOUNT, MIN_TOPUP_AMOUNT } = require("../config/server");
 
 const handleUserSignUp = async (req, res) => {
   const {
-    userName,
+    email,
     password,
     age,
     nickName,
@@ -38,19 +38,19 @@ const handleUserSignUp = async (req, res) => {
       console.log("Registration failed: User < 18");
       return;
     }
-    const user = await User.findOne({ userName: userName });
+    const user = await User.findOne({ email: email });
 
     if (user) {
       res.status(400).json({
-        message: "UserName already exists, try login",
+        message: "email already exists, try login",
       });
-      console.log("Registration failed: UserName already exists");
+      console.log("Registration failed: email already exists");
       return;
     }
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
-      userName,
+      email,
       password: hashedPassword,
       age,
       // walletBalance is intentionally omitted here to rely on the schema default of 0
@@ -67,19 +67,20 @@ const handleUserSignUp = async (req, res) => {
     res.status(200).json({
       message: "User created successfully",
       user: {
-        userName: newUser.userName,
+        email: newUser.email,
         age: newUser.age,
         walletBalance: newUser.walletBalance,
         nickName: newUser.nickName,
         role: newUser.role,
         gender: newUser.gender,
+        phoneNo: newUser.phoneNo,
         country: newUser.country,
         interests: newUser.interests,
         createdAt: newUser.createdAt,
         updatedAt: newUser.updatedAt,
       },
     });
-    console.log("User created successfully:", newUser.userName);
+    console.log("User created successfully:", newUser.email);
   } catch (error) {
     console.error("Error in handleUserSignUp:", error);
     res.status(500).json({ message: error.message });
@@ -87,16 +88,16 @@ const handleUserSignUp = async (req, res) => {
 };
 
 const handleUserLogin = async (req, res) => {
-  const { userName, password } = req.body;
+  const { email, password } = req.body;
   try {
-    const user = await User.findOne({ userName });
+    const user = await User.findOne({ email });
 
     if (!user) {
       res.status(400).json({
-        message: "Incorrect username or password",
+        message: "Incorrect email or password",
       });
       console.log(
-        `Login attempt failed for username: ${userName} (user not found)`
+        `Login attempt failed for email: ${email} (user not found)`
       );
       return;
     }
@@ -107,10 +108,10 @@ const handleUserLogin = async (req, res) => {
     );
     if (!passwordMatch) {
       res.status(400).json({
-        message: "Incorrect password or username",
+        message: "Incorrect password or email",
       });
       console.log(
-        `Login attempt failed for username: ${userName} (incorrect password)`
+        `Login attempt failed for email: ${email} (incorrect password)`
       );
       return;
     }
@@ -129,7 +130,7 @@ const handleUserLogin = async (req, res) => {
       maxAge:  30 * 24 * 60 * 60 * 1000, // 30days
     }).json({ message: "User logged in successfully",
       user: {
-        userName: user?.userName,
+        email: user?.email,
         age: user?.age,
         walletBalance: user?.walletBalance,
         nickName: user?.nickName,
@@ -144,7 +145,7 @@ const handleUserLogin = async (req, res) => {
       accessToken,
       refreshToken,
       })    
-    console.log("User logged in successfully:", user.userName);
+    console.log("User logged in successfully:", user.email);
   } catch (error) {
     console.error("Error in handleUserLogin:", error);
     res.status(500).json({ message: error.message });
@@ -188,10 +189,10 @@ const handleLogOut = async (req, res) => {
 }
 
 const handleForgetPassword = async (req, res) => {
-  const { userName } = req.body;
+  const { email } = req.body;
 
   try {
-    const user = await User.findOne({ userName: userName });
+    const user = await User.findOne({ email: email });
 
     if (!user) {
       return res.status(404).json({
@@ -233,7 +234,7 @@ const handleResetPassword = async (req, res) => {
     res.status(200).json({
       message: "Password reset successfully",
     });
-    console.log("Password reset successfully for user:", user.userName);
+    console.log("Password reset successfully for user:", user.email);
   } catch (error) {
     console.error("Error in handleResetPassword:", error);
     res.status(500).json({ message: error.message });

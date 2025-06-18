@@ -14,11 +14,16 @@ const { MIN_BET_AMOUNT, MIN_TOPUP_AMOUNT } = require("../config/server");
 // ADMIN ROLES
 
 //  Create an Event - ONLY ADMIN CAN
+// Assuming 'Event' model is imported, e.g.:
+// const Event = require('../models/Event');
+// Assuming 'generateEventMockup' function is imported or defined, e.g.:
+// const { generateEventMockup } = require('../services/imageService');
+
 const handleAdminCreateEvent = async (req, res) => {
   const {
     eventType,
     eventDescription,
-    eventImage,
+    // eventImage from req.body is no longer directly used if home/away teams are present for mockup
     homeTeam,
     awayTeam,
     availableOdds,
@@ -28,6 +33,8 @@ const handleAdminCreateEvent = async (req, res) => {
     eventTime,
   } = req.body;
   const adminUser = req.user; // User object from authenticated token
+
+  let generatedMockupPath = null; // To store the path of the generated mockup
 
   try {
     // --- Event Data Validation ---
@@ -47,16 +54,38 @@ const handleAdminCreateEvent = async (req, res) => {
       return;
     }
 
+    // --- Generate Event Mockup Image ---
+    // Since homeTeam and awayTeam are validated to be present, we can proceed.
+    if (homeTeam && awayTeam) {
+      try {
+        console.log(`Attempting to generate mockup for ${homeTeam} vs ${awayTeam}...`);
+        // Ensure generateEventMockup is an async function and available in this scope.
+        // It should return the path to the image or null if generation fails.
+        generatedMockupPath = await generateEventMockup(homeTeam, awayTeam);
+
+        if (generatedMockupPath) {
+          console.log(`Successfully generated mockup. Image link: ${generatedMockupPath}`);
+        } else {
+          console.log("Failed to generate event mockup image. Event will be created without a generated image.");
+          // generatedMockupPath remains null. The Event model will store null for eventImage.
+          // Optionally, set a default path: generatedMockupPath = '/path/to/default/no_mockup_image.png';
+        }
+      } catch (mockupError) {
+        console.error("Error during event mockup generation:", mockupError.message);
+        // Log the error and continue; eventImage will be null or a default.
+        console.log("Proceeding with event creation; generated mockup path will be null due to error.");
+      }
+    }
+
     // --- Create and Save New Event ---
     const newEvent = new Event({
       userId: adminUser._id, // CRITICAL: Set the userId from the authenticated admin
-      // publicEventId: generatedPublicEventId, // Assign the generated public ID
       eventType,
       homeTeam,
       awayTeam,
       availableOdds,
       eventDescription,
-      eventImage,
+      eventImage: generatedMockupPath, // Use the path from mockup generation
       eventStatus: eventStatus, // Let schema default handle it if not provided
       eventReviews: eventReviews, // Let schema default handle it if not provided
       eventDate,
@@ -69,12 +98,16 @@ const handleAdminCreateEvent = async (req, res) => {
       message: "Event created successfully by admin.",
       event: newEvent,
     });
-    console.log("Event created successfully by admin:", adminUser.userName);
+    console.log("Event created successfully by admin:", adminUser.email);
   } catch (error) {
-    console.error("Error in /create-event:", error);
+    console.error("Error in /create-event:", error.message, error.stack ? `\nStack: ${error.stack}` : '');
+    // Handle specific Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: "Validation error creating event.", errors: error.errors });
+    }
     res.status(500).json({
       message: "Server error while creating event.",
-      error: error.message,
+      error: error.message, // Provide error message to the client
     });
   }
 };

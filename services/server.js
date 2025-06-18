@@ -53,7 +53,7 @@ const sendForgetPasswordEmail = async (user, token) => {
 
         const mailDetails = {
             from: process.env.EMAIL, 
-            to: user.userName,
+            to: user.email,
             subject: "Password Reset Notification",
             html: `
             <hi>Password Reset Notification</h1>

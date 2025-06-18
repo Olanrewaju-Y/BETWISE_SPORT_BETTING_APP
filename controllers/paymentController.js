@@ -161,7 +161,7 @@ const handleCreditUserWallet = async (req, res) => {
 
     await session.commitTransaction();
     res.status(200).json({
-      message: `User ${updatedUser.userName}'s wallet credited successfully.`,
+      message: `User ${updatedUser.email}'s wallet credited successfully.`,
       newBalance: updatedUser.walletBalance,
       transaction: transactionLogEntry,
     });
@@ -209,12 +209,12 @@ const handleCreditWalletFromBank = async (req, res) => {
   }
 
   // Use details from the authenticated user's profile
-  const customerEmail = userForPayment.userName; // Assuming userName is the email
-  const customerName = userForPayment.nickName || userForPayment.userName; // Fallback for name
+  const customerEmail = userForPayment.email; // Assuming email is the email
+  const customerName = userForPayment.nickName || userForPayment.email; // Fallback for name
   const customerPhone = userForPayment.phoneNo; // Use the stored phoneNo
 
   if (!customerEmail || !/^\S+@\S+\.\S+$/.test(customerEmail)) {
-    // This should ideally not happen if userName is validated on signup
+    // This should ideally not happen if email is validated on signup
     return res.status(400).json({ message: "User profile has an invalid email format." });
   }
   // phoneNo might be a 6-digit code or a full number, Flutterwave might validate it further.
@@ -665,7 +665,7 @@ const handleFlutterwaveBankTransferWebhook = async (req, res) => {
     });
 
     await session.commitTransaction();
-    console.log(`Wallet credited for user ${userToCredit.userName} (ID: ${betwiseUserIdToCredit}) via bank transfer. Amount: ${amountPaid}. TxLog: ${transactionLogEntry._id}`);
+    console.log(`Wallet credited for user ${userToCredit.email} (ID: ${betwiseUserIdToCredit}) via bank transfer. Amount: ${amountPaid}. TxLog: ${transactionLogEntry._id}`);
     
     // 7. Respond to Flutterwave
     res.status(200).send("Webhook processed successfully");

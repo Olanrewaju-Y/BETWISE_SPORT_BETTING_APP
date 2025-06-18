@@ -7,7 +7,7 @@ require("dotenv").config();
 //  validate Register
 const validateRegister = (req, res, next) => {
   const {
-    userName,
+    email,
     password,
     below18,
     walletBalance,
@@ -20,7 +20,7 @@ const validateRegister = (req, res, next) => {
 
   const errors = []
 
-  if (!userName) {
+  if (!email) {
     errors.push("Please add your email");
   }
   if (!password) {
@@ -37,7 +37,7 @@ const validateRegister = (req, res, next) => {
 // validate Email Format
 const validateEmailFormat = (req, res, next) => {
   const {
-    userName,
+    email,
     password,
     below18,
     walletBalance,
@@ -50,7 +50,7 @@ const validateEmailFormat = (req, res, next) => {
 
   const emailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailFormat.test(userName)) {
+  if (!emailFormat.test(email)) {
     res.status(400).json({
       message: "Invalid email format",
     });

@@ -11,6 +11,7 @@
     "url": "https://github.com/Olanrewaju-Y/BETWISE_SPORT_BETTING_APP.git"
   },
   "dependencies": {
+    "@google-cloud/aiplatform": "^4.2.0",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -18,6 +19,7 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "git-filter-repo": "^0.0.30",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.2",
     "nodemailer": "^7.0.3",
