@@ -25,7 +25,7 @@ app.use(express.json());
 // CORS middleware
 app.use(cors({
   origin: process.env.FRONTEND_APP_URL,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
   credentials: true
 }));
 
