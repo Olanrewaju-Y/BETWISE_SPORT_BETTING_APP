@@ -6,6 +6,7 @@ const {
   handleGetEventById, 
   handlePlaceOdd,
   handleCreateBetSlip,
+  handleDeleteOnePlacedOdd,
   handleDeleteAllPlacedOdds,
   handleGetAllBetSlips,
   handleDeleteUserBetSlips,
@@ -29,6 +30,9 @@ router.patch("/place-odd/:id", authenticateToken, handlePlaceOdd )
 
 // Gell all placed Odds
 router.get("/all-placed-odds", authenticateToken, handleAllPlacedOdds )
+
+// Delete one placed odd
+router.delete("/delete-one-placed-Odd", authenticateToken, handleDeleteOnePlacedOdd )
 
 // Delete Placed Odds
 router.delete("/delete-all-placed-Odds", authenticateToken, handleDeleteAllPlacedOdds )

@@ -140,6 +140,26 @@ const handleAllPlacedOdds = async (req, res) => {
   }
 };
 
+//  Delete one placed odd
+const handleDeleteOnePlacedOdd = async (req, res) => {
+   const userId = req.user.id;
+   try{const { id: oddId } = req.params; // Assuming oddId comes from URL params as 'id'
+   const result = await Odd.deleteOne({ _id: oddId, userId: userId });
+
+    // Check if an odd was actually deleted
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: 'Odd not found or you do not have permission to delete it.' });
+    }
+
+    // If deletedCount is 1, the odd was successfully deleted
+    return res.status(200).json({ message: 'Odd successfully deleted.' });
+
+  } catch (error) {
+    console.error('Error deleting odd:', error); // Log the error for debugging
+    return res.status(500).json({ message: 'An error occurred while deleting the odd.', error: error.message });
+  }
+}
+
 //  Delete All Place Odds (all Cart Items)
 const handleDeleteAllPlacedOdds = async (req, res) => {
   const userId = req.user.id;
@@ -387,6 +407,7 @@ module.exports = {
   handleGetEventById,
   handlePlaceOdd,
   handleAllPlacedOdds,
+  handleDeleteOnePlacedOdd,
   handleDeleteAllPlacedOdds,
   handleCreateBetSlip,
   handleGetAllBetSlips,
