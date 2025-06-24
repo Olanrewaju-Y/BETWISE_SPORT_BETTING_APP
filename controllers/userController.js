@@ -142,23 +142,31 @@ const handleAllPlacedOdds = async (req, res) => {
 
 //  Delete one placed odd
 const handleDeleteOnePlacedOdd = async (req, res) => {
-   const userId = req.user.id;
-   try{const { id: oddId } = req.params; // Assuming oddId comes from URL params as 'id'
-   const result = await Odd.deleteOne({ _id: oddId, userId: userId });
+  const { id: userId } = req.user;
+  const { id: oddId } = req.params;
 
-    // Check if an odd was actually deleted
+  // 1. Validate the incoming ID format
+  if (!mongoose.Types.ObjectId.isValid(oddId)) {
+    return res.status(400).json({ message: 'Invalid Odd ID format.' });
+  }
+  try {
+    // 2. Correctly and securely query for the document to delete
+    const result = await Odd.deleteOne({ _id: oddId, userId });
+
+    // 3. Check if a document was actually deleted
     if (result.deletedCount === 0) {
       return res.status(404).json({ message: 'Odd not found or you do not have permission to delete it.' });
     }
 
-    // If deletedCount is 1, the odd was successfully deleted
+    // 4. Send a successful response
+    console.log(`Odd ${oddId} for user ${userId} was deleted successfully.`);
     return res.status(200).json({ message: 'Odd successfully deleted.' });
-
-  } catch (error) {
-    console.error('Error deleting odd:', error); // Log the error for debugging
-    return res.status(500).json({ message: 'An error occurred while deleting the odd.', error: error.message });
-  }
+ 
+  } catch (err) {
+  console.error("Error in handleDeleteOnePlacedOdd:", err);
+    return res.status(500).json({ message: 'An internal server error occurred while deleting the odd.' });
 }
+};
 
 //  Delete All Place Odds (all Cart Items)
 const handleDeleteAllPlacedOdds = async (req, res) => {
