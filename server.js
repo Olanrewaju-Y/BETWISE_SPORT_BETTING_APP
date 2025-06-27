@@ -7,14 +7,14 @@ const mongoose = require("mongoose");
 const app = express();
 
 
+
 // Import your new router
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const rapidapiRoutes = require("./routes/rapidapiRoutes")
 // const aiRoutes = require("./routes/aiRoutes")
-
-
 
 
 
@@ -28,6 +28,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
   credentials: true
 }));
+
 
 
 
@@ -55,8 +56,10 @@ mongoose
 // APIs
 
 // Test/Welcome Page 
-app.get("/", (req, res) => { res.status(200).json({ message: "Welcome To BetWise!" }); })
+app.get("/", (req, res) => { res.status(200).json({ message: "Welcome To BetWise!" }); });
 
+// Route for RapidAPI
+app.use("/api/rapid-data", rapidapiRoutes );
 
 // Mount the authentication routes
 app.use("/api/auth", authRoutes);
@@ -75,3 +78,7 @@ app.use((err, req, res, next) => {
 app.use((req, res, next) => {
   res.status(404).send({ error: 'Not Found' });
 });
+
+
+
+

@@ -7,7 +7,8 @@ const {
   settleBetSlipStatus,
 } = require("../services/server");
 const mongoose = require("mongoose");
-const { MIN_BET_AMOUNT, MIN_TOPUP_AMOUNT } = require("../config/server");
+const { MIN_BET_AMOUNT, MIN_TOPUP_AMOUNT, CHAMPIONS_LEAGUE_TEAM_LOGOS } = require("../config/server");
+
 
 
 
@@ -23,7 +24,7 @@ const handleAdminCreateEvent = async (req, res) => {
   const {
     eventType,
     eventDescription,
-    // eventImage from req.body is no longer directly used if home/away teams are present for mockup
+    eventImage, // from req.body is no longer directly used if home/away teams are present for mockup
     homeTeam,
     awayTeam,
     availableOdds,
@@ -68,7 +69,7 @@ const handleAdminCreateEvent = async (req, res) => {
         } else {
           console.log("Failed to generate event mockup image. Event will be created without a generated image.");
           // generatedMockupPath remains null. The Event model will store null for eventImage.
-          // Optionally, set a default path: generatedMockupPath = '/path/to/default/no_mockup_image.png';
+          generatedMockupPath = CHAMPIONS_LEAGUE_TEAM_LOGOS.$in;
         }
       } catch (mockupError) {
         console.error("Error during event mockup generation:", mockupError.message);
@@ -85,7 +86,7 @@ const handleAdminCreateEvent = async (req, res) => {
       awayTeam,
       availableOdds,
       eventDescription,
-      eventImage: generatedMockupPath, // Use the path from mockup generation
+      eventImage, // : generatedMockupPath, // Use the path from mockup generation
       eventStatus: eventStatus, // Let schema default handle it if not provided
       eventReviews: eventReviews, // Let schema default handle it if not provided
       eventDate,

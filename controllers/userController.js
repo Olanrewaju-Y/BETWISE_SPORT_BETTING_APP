@@ -142,30 +142,40 @@ const handleAllPlacedOdds = async (req, res) => {
 
 //  Delete one placed odd
 const handleDeleteOnePlacedOdd = async (req, res) => {
-  const { id: userId } = req.user;
-  const { id: oddId } = req.params;
+  const userId = req.user?.id;
+  const oddId = req.params.id;
 
-  // 1. Validate the incoming ID format
-  if (!mongoose.Types.ObjectId.isValid(oddId)) {
-    return res.status(400).json({ message: 'Invalid Odd ID format.' });
+  // 1. Ensure the user ID is present (auth middleware should set this)
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized. User ID is missing.' });
   }
-  try {
-    // 2. Correctly and securely query for the document to delete
-    const result = await Odd.deleteOne({ _id: oddId, userId });
 
-    // 3. Check if a document was actually deleted
+  // 2. Validate the Odd ID format
+  if (!mongoose.Types.ObjectId.isValid(oddId)) {
+    return res.status(400).json({ message: 'Invalid odd ID format.' });
+  }
+
+  try {
+    // 3. Attempt to delete the odd only if it belongs to the user
+    const result = await Odd.deleteOne({ oddId });
+
+    // 4. Check if deletion actually occurred
     if (result.deletedCount === 0) {
-      return res.status(404).json({ message: 'Odd not found or you do not have permission to delete it.' });
+      return res.status(404).json({
+        message: 'Odd not found or you do not have permission to delete it.'
+      });
     }
 
-    // 4. Send a successful response
-    console.log(`Odd ${oddId} for user ${userId} was deleted successfully.`);
+    // 5. Log and return success
+    console.log(`[DELETE] Odd ${oddId} deleted by user ${userId}`);
     return res.status(200).json({ message: 'Odd successfully deleted.' });
- 
-  } catch (err) {
-  console.error("Error in handleDeleteOnePlacedOdd:", err);
-    return res.status(500).json({ message: 'An internal server error occurred while deleting the odd.' });
-}
+
+  } catch (error) {
+    console.error(`[ERROR] Failed to delete odd ${oddId} for user ${userId}:`, error);
+    return res.status(500).json({
+      message: 'An internal server error occurred while deleting the odd.'
+    });
+  }
 };
 
 //  Delete All Place Odds (all Cart Items)
