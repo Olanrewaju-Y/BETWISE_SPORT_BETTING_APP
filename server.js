@@ -21,9 +21,10 @@ const rapidapiRoutes = require("./routes/rapidapiRoutes")
 // middleware / body parser
 app.use(express.json());
 
-const allowedOrigins = [process.env.FRONTEND_APP_URL, process.env.RAPID_API_HOST_URL]
 
-// CORS middleware
+// ALLOW CORS MIDDLEWARE
+const allowedOrigins = [process.env.FRONTEND_APP_URL];
+
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
