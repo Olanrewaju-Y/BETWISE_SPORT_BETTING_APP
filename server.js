@@ -21,15 +21,20 @@ const rapidapiRoutes = require("./routes/rapidapiRoutes")
 // middleware / body parser
 app.use(express.json());
 
+const allowedOrigin = [process.env.FRONTEND_APP_URL, process.env.RAPID_API_HOST_URL]
 
 // CORS middleware
 app.use(cors({
-  origin: process.env.FRONTEND_APP_URL,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
   credentials: true
 }));
-
-
 
 
 // setting up PORT
