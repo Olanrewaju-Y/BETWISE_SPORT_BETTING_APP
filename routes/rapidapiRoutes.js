@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
     const options = {
       method: 'GET',
       url: RAPID_API_URL,
-    //   params: {fixture: '215662'},
+      params: {fixture: '215662'},
       headers: {
         'x-rapidapi-key': RAPID_API_KEY,
         'x-rapidapi-host': RAPID_API_HOST_URL

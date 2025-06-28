@@ -65,7 +65,7 @@ mongoose
 app.get("/", (req, res) => { res.status(200).json({ message: "Welcome To BetWise!" }); });
 
 // Route for RapidAPI
-app.use("/api/rapid-data", rapidapiRoutes );
+app.use("/api/live-events", rapidapiRoutes );
 
 // Mount the authentication routes
 app.use("/api/auth", authRoutes);
