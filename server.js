@@ -13,7 +13,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
-const rapidapiRoutes = require("./routes/rapidapiRoutes")
+const externalApiRoutes = require("./routes/externalApiRoutes")
 // const aiRoutes = require("./routes/aiRoutes")
 
 
@@ -64,8 +64,8 @@ mongoose
 // Test/Welcome Page 
 app.get("/", (req, res) => { res.status(200).json({ message: "Welcome To BetWise!" }); });
 
-// Route for RapidAPI
-app.use("/api/live-events", rapidapiRoutes );
+// Route for External API events
+app.use("/api/live-events", externalApiRoutes );
 
 // Mount the authentication routes
 app.use("/api/auth", authRoutes);
