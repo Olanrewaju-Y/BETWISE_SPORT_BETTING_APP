@@ -153,19 +153,23 @@ const handleDeleteOnePlacedOdd = async (req, res) => {
   // 2. Validate the Odd ID format
   if (!mongoose.Types.ObjectId.isValid(oddId)) {
     return res.status(400).json({ message: 'Invalid odd ID format.' });
-  }
+  };
 
   try {
     // 3. Attempt to delete the odd only if it belongs to the user
-    const result = await Odd.deleteOne({ oddId });
+    const odd = await Odd.findOneAndDelete({
+      _id: oddId,
+      userId: userId
+    });
+
+    console.log(`[DEBUG] Odd deletion attempt for user ${userId}:`, odd);
 
     // 4. Check if deletion actually occurred
-    if (result.deletedCount === 0) {
+    if (!odd) {
       return res.status(404).json({
         message: 'Odd not found or you do not have permission to delete it.'
       });
     }
-
     // 5. Log and return success
     console.log(`[DELETE] Odd ${oddId} deleted by user ${userId}`);
     return res.status(200).json({ message: 'Odd successfully deleted.' });

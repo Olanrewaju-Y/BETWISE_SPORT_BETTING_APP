@@ -32,7 +32,7 @@ router.patch("/place-odd/:id", authenticateToken, handlePlaceOdd )
 router.get("/all-placed-odds", authenticateToken, handleAllPlacedOdds )
 
 // Delete one placed odd
-router.delete("/delete-one-placed-odd", authenticateToken, handleDeleteOnePlacedOdd )
+router.delete("/delete-one-placed-odd/:id", authenticateToken, handleDeleteOnePlacedOdd )
 
 // Delete Placed Odds
 router.delete("/delete-all-placed-Odds", authenticateToken, handleDeleteAllPlacedOdds )
