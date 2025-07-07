@@ -23,7 +23,7 @@ app.use(express.json());
 
 
 // ALLOW CORS MIDDLEWARE
-const allowedOrigins = [process.env.FRONTEND_APP_URL];
+const allowedOrigins = [process.env.FRONTEND_APP_URL || "http://localhost:3000"];
 
 app.use(cors({
   origin: function (origin, callback) {
